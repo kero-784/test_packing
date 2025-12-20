@@ -1,17 +1,13 @@
-// !!! IMPORTANT: PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
+// config.js
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl6OQvlEMAZdzpL-Xuq9NAWsSFBuZTAXgz4O51GM62HImSQ1bDSaaXEehqiF2phgmx/exec';
 
 const Logger = {
-    info: (message, ...args) => console.log(`[StockWise INFO] ${message}`, ...args),
-    warn: (message, ...args) => console.warn(`[StockWise WARN] ${message}`, ...args),
-    error: (message, ...args) => console.error(`[StockWise ERROR] ${message}`, ...args),
+    info: (message, ...args) => console.log(`%c[INFO] ${message}`, 'color: #2196F3; font-weight: bold;', ...args),
+    warn: (message, ...args) => console.warn(`%c[WARN] ${message}`, 'color: #FF9800; font-weight: bold;', ...args),
+    error: (message, ...args) => console.error(`%c[ERROR] ${message}`, 'color: #F44336; font-weight: bold;', ...args),
     debug: (message, ...args) => {
-        if (state.currentUser && state.currentUser.RoleName === 'Admin') {
-            // showToast is in utils.js, strictly check if available or use console
-            console.log(`[StockWise DEBUG] ${message}`, ...args);
-        } else {
-            console.log(`[StockWise DEBUG] ${message}`, ...args);
-        }
+        // Always log debug for now to help troubleshoot
+        console.log(`%c[DEBUG] ${message}`, 'color: #9C27B0;', ...args);
     }
 };
 
