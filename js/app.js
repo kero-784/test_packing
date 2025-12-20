@@ -1,7 +1,8 @@
 import { state } from './state.js';
 import { CONFIG, Logger } from './config.js';
 import { attemptLogin, postData } from './api.js';
-import { showView, showToast, setButtonLoading, applyTranslations } from './ui.js';
+import { showView, showToast, setButtonLoading, closeModal } from './ui.js';
+import { applyTranslations } from './i18n.js'; // CORRECTED IMPORT
 import { attachEventListeners } from './events.js';
 import { findByKey, populateOptions, userCan } from './utils.js';
 import { calculateStockLevels } from './calculations.js';
@@ -22,7 +23,6 @@ async function reloadDataAndRefreshUI() {
         const data = await response.json();
         if (data.status === 'error') throw new Error(data.message);
 
-        // Update state with new data
         Object.keys(data).forEach(key => {
             if (key !== 'user') state[key] = data[key] || [];
         });
@@ -44,7 +44,6 @@ async function reloadDataAndRefreshUI() {
 
 async function refreshViewData(viewId) {
     if (!state.currentUser) return;
-    Logger.info(`Refreshing UI for view: ${viewId}`);
 
     switch (viewId) {
         case 'dashboard':
@@ -100,7 +99,6 @@ async function refreshViewData(viewId) {
             break;
     }
     applyTranslations();
-    applyUserUIConstraints();
 }
 
 function updateUserBranchDisplay() {
@@ -111,17 +109,6 @@ function updateUserBranchDisplay() {
     let text = branch ? `Branch: ${branch.branchName}` : '';
     if (section) text += (text ? ' / ' : '') + `Section: ${section.sectionName}`;
     el.textContent = text;
-}
-
-function applyUserUIConstraints() {
-    if (!state.currentUser) return;
-    const branchCode = state.currentUser.AssignedBranchCode;
-    if (branchCode && !userCan('viewAllBranches')) {
-        ['receive-branch', 'issue-from-branch', 'transfer-from-branch', 'return-branch', 'adjustment-branch'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) { el.value = branchCode; el.disabled = true; }
-        });
-    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
