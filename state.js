@@ -1,4 +1,5 @@
-let state = {
+// Global State Object
+var state = {
     currentUser: null,
     username: null,
     loginCode: null,
@@ -13,6 +14,7 @@ let state = {
     purchaseOrderItems: [],
     itemRequests: [],
     activityLog: [],
+    // UI Lists
     currentReceiveList: [],
     currentTransferList: [],
     currentIssueList: [],
@@ -21,18 +23,20 @@ let state = {
     currentRequestList: [],
     currentEditingPOList: [],
     currentAdjustmentList: [],
+    // Sets
     modalSelections: new Set(),
     invoiceModalSelections: new Set(),
+    reportSelectedBranches: new Set(),
+    reportSelectedSections: new Set(),
+    reportSelectedItems: new Set(),
     allUsers: [],
     allRoles: [],
     backups: [],
     adminContextPromise: {},
-    reportSelectedBranches: new Set(),
-    reportSelectedSections: new Set(),
-    reportSelectedItems: new Set(),
     currentSelectionModal: {
         type: null,
         tempSelections: new Set()
     },
 };
-let modalContext = null;
+
+var modalContext = null;
