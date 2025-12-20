@@ -1,13 +1,16 @@
-function getVisibleBranchesForCurrentUser() { 
-    if (!state.currentUser) return []; 
-    if (userCan('viewAllBranches')) { return state.branches; } 
-    if (state.currentUser.AssignedBranchCode) { return state.branches.filter(b => String(b.branchCode) === String(state.currentUser.AssignedBranchCode)); } 
-    return []; 
+// --- HELPER FUNCTIONS ---
+function getVisibleBranchesForCurrentUser() {
+    if (!state.currentUser) return [];
+    if (userCan('viewAllBranches')) { return state.branches; }
+    if (state.currentUser.AssignedBranchCode) { return state.branches.filter(b => String(b.branchCode) === String(state.currentUser.AssignedBranchCode)); }
+    return [];
 }
 
 // --- TABLE RENDERERS ---
 function renderItemsTable(data = state.items) {
-    const tbody = document.getElementById('table-items').querySelector('tbody');
+    const table = document.getElementById('table-items');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_found')}</td></tr>`;
@@ -22,7 +25,9 @@ function renderItemsTable(data = state.items) {
 }
 
 function renderSuppliersTable(data = state.suppliers) {
-    const tbody = document.getElementById('table-suppliers').querySelector('tbody');
+    const table = document.getElementById('table-suppliers');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${_t('no_suppliers_found')}</td></tr>`;
@@ -39,7 +44,9 @@ function renderSuppliersTable(data = state.suppliers) {
 }
 
 function renderBranchesTable(data = state.branches) {
-    const tbody = document.getElementById('table-branches').querySelector('tbody');
+    const table = document.getElementById('table-branches');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${_t('no_branches_found')}</td></tr>`;
@@ -54,7 +61,9 @@ function renderBranchesTable(data = state.branches) {
 }
 
 function renderSectionsTable(data = state.sections) {
-    const tbody = document.getElementById('table-sections').querySelector('tbody');
+    const table = document.getElementById('table-sections');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${_t('no_sections_found')}</td></tr>`;
@@ -70,7 +79,7 @@ function renderSectionsTable(data = state.sections) {
 
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
-    if (!table) return; // Guard clause
+    if (!table) return; 
     const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     if (!list || list.length === 0) {
@@ -112,14 +121,17 @@ function renderReturnListTable() { renderDynamicListTable('table-return-list', s
 function renderRequestListTable() { renderDynamicListTable('table-request-list', state.currentRequestList, [ { type: 'text', key: 'itemCode' }, { type: 'text', key: 'itemName' }, { type: 'number_input', key: 'quantity' } ], 'no_items_selected_toast', null); }
 
 function renderAdjustmentListTable() {
-    const tbody = document.getElementById('table-adjustment-list').querySelector('tbody');
+    const table = document.getElementById('table-adjustment-list');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     if (!state.currentAdjustmentList || state.currentAdjustmentList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_for_adjustment')}</td></tr>`;
         return;
     }
     const stock = calculateStockLevels();
-    const branchCode = document.getElementById('adjustment-branch').value;
+    const branchCodeEl = document.getElementById('adjustment-branch');
+    const branchCode = branchCodeEl ? branchCodeEl.value : null;
 
     state.currentAdjustmentList.forEach((item, index) => {
         const systemQty = (branchCode && stock[branchCode]?.[item.itemCode]?.quantity) || 0;
@@ -156,6 +168,7 @@ function renderItemCentricStockView(itemsToRender = state.items) {
 
 function renderItemInquiry(searchTerm) {
     const resultsContainer = document.getElementById('item-inquiry-results');
+    if (!resultsContainer) return;
     if (!searchTerm) {
         resultsContainer.innerHTML = '';
         return;
@@ -182,15 +195,20 @@ function renderItemInquiry(searchTerm) {
     resultsContainer.innerHTML = html;
 }
 
-// --- MISSING FUNCTIONS ADDED HERE ---
+// --- MISSING FUNCTIONS (Now Included) ---
 
 function renderPaymentList() {
-    const supplierCode = document.getElementById('payment-supplier-select').value;
+    const supplierEl = document.getElementById('payment-supplier-select');
     const container = document.getElementById('payment-invoice-list-container');
+    if (!supplierEl || !container) return;
+    
+    const supplierCode = supplierEl.value;
     if (!supplierCode) { container.style.display = 'none'; return; }
     
     const supplierInvoices = calculateSupplierFinancials()[supplierCode]?.invoices;
-    const tableBody = document.getElementById('table-payment-list').querySelector('tbody');
+    const table = document.getElementById('table-payment-list');
+    if (!table) return;
+    const tableBody = table.querySelector('tbody');
     tableBody.innerHTML = '';
     let total = 0;
     
@@ -205,13 +223,17 @@ function renderPaymentList() {
         tr.innerHTML = `<td>${invoice.number}</td><td>${balance.toFixed(2)} EGP</td><td><input type="number" class="table-input payment-amount-input" data-invoice="${invoice.number}" value="${balance.toFixed(2)}" step="0.01" min="0" max="${balance.toFixed(2)}" style="max-width: 150px;"></td>`;
         tableBody.appendChild(tr);
     });
-    document.getElementById('payment-total-amount').textContent = `${total.toFixed(2)} EGP`;
+    const totalEl = document.getElementById('payment-total-amount');
+    if(totalEl) totalEl.textContent = `${total.toFixed(2)} EGP`;
     container.style.display = 'block';
 }
 
 function renderPendingTransfers() {
     const container = document.getElementById('pending-transfers-card');
-    const tbody = document.getElementById('table-pending-transfers').querySelector('tbody');
+    const table = document.getElementById('table-pending-transfers');
+    if(!container || !table) return;
+    
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     const groupedTransfers = {};
     (state.transactions || []).filter(t => t.type === 'transfer_out' && t.Status === 'In Transit').forEach(t => {
@@ -232,7 +254,9 @@ function renderPendingTransfers() {
 }
 
 function renderInTransitReport() {
-    const tbody = document.getElementById('table-in-transit').querySelector('tbody');
+    const table = document.getElementById('table-in-transit');
+    if(!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     const groupedTransfers = {};
     (state.transactions || []).filter(t => t.type === 'transfer_out').forEach(t => {
@@ -253,7 +277,9 @@ function renderInTransitReport() {
 }
 
 function renderPurchaseOrdersViewer() {
-    const tbody = document.getElementById('table-po-viewer').querySelector('tbody');
+    const table = document.getElementById('table-po-viewer');
+    if(!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     (state.purchaseOrders || []).slice().reverse().forEach(po => {
         const supplier = findByKey(state.suppliers, 'supplierCode', po.supplierCode);
@@ -266,7 +292,9 @@ function renderPurchaseOrdersViewer() {
 }
 
 function renderPendingFinancials() {
-    const tbody = document.getElementById('table-pending-financial-approval').querySelector('tbody');
+    const table = document.getElementById('table-pending-financial-approval');
+    if(!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     const pendingPOs = (state.purchaseOrders || []).filter(po => po.Status === 'Pending Approval');
     const pendingReceivesGroups = {};
@@ -286,7 +314,9 @@ function renderPendingFinancials() {
 }
 
 function renderTransactionHistory(filters = {}) {
-    const tbody = document.getElementById('table-transaction-history').querySelector('tbody');
+    const table = document.getElementById('table-transaction-history');
+    if(!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     let allTx = [...state.transactions], allPo = [...state.purchaseOrders];
     if (!userCan('viewAllBranches')) { const branchCode = state.currentUser.AssignedBranchCode; if (branchCode) { allTx = allTx.filter(t => String(t.branchCode) === branchCode || String(t.fromBranchCode) === branchCode || String(t.toBranchCode) === branchCode); allPo = []; } }
@@ -319,7 +349,9 @@ function renderTransactionHistory(filters = {}) {
 }
 
 function renderActivityLog() {
-    const tbody = document.getElementById('table-activity-log').querySelector('tbody');
+    const table = document.getElementById('table-activity-log');
+    if(!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     if (!state.activityLog || state.activityLog.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No activity logged.</td></tr>`; return; }
     state.activityLog.slice().reverse().forEach(log => {
@@ -330,7 +362,11 @@ function renderActivityLog() {
 }
 
 function renderUserManagementUI() {
-    const usersTbody = document.getElementById('table-users').querySelector('tbody');
+    const usersTable = document.getElementById('table-users');
+    const rolesTable = document.getElementById('table-roles');
+    if(!usersTable || !rolesTable) return;
+    
+    const usersTbody = usersTable.querySelector('tbody');
     usersTbody.innerHTML = '';
     (state.allUsers || []).forEach(user => {
         const tr = document.createElement('tr');
@@ -339,7 +375,7 @@ function renderUserManagementUI() {
         tr.innerHTML = `<td>${user.Username}</td><td>${user.Name}</td><td>${user.RoleName}</td><td>${assigned}</td><td><span class="status-tag ${isDisabled ? 'status-rejected' : 'status-approved'}">${isDisabled ? 'Disabled' : 'Active'}</span></td><td><button class="secondary small btn-edit" data-type="user" data-id="${user.Username}">${_t('edit')}</button></td>`;
         usersTbody.appendChild(tr);
     });
-    const rolesTbody = document.getElementById('table-roles').querySelector('tbody');
+    const rolesTbody = rolesTable.querySelector('tbody');
     rolesTbody.innerHTML = '';
     (state.allRoles || []).forEach(role => {
         const tr = document.createElement('tr');
@@ -349,7 +385,9 @@ function renderUserManagementUI() {
 }
 
 function renderMyRequests() {
-    const tbody = document.getElementById('table-my-requests-history').querySelector('tbody');
+    const table = document.getElementById('table-my-requests-history');
+    if(!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     const myRequests = (state.itemRequests || []).filter(r => r.RequestedBy === state.currentUser.Name);
     const grouped = myRequests.reduce((acc, req) => { if (!acc[req.RequestID]) acc[req.RequestID] = { ...req, items: [] }; acc[req.RequestID].items.push(req); return acc; }, {});
@@ -362,7 +400,9 @@ function renderMyRequests() {
 }
 
 function renderPendingRequests() {
-    const tbody = document.getElementById('table-pending-requests').querySelector('tbody');
+    const table = document.getElementById('table-pending-requests');
+    if(!table) return;
+    const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
     const pending = (state.itemRequests || []).filter(r => r.Status === 'Pending' && (userCan('viewAllBranches') || r.ToBranch === state.currentUser.AssignedBranchCode));
     const grouped = pending.reduce((acc, req) => { if (!acc[req.RequestID]) acc[req.RequestID] = []; acc[req.RequestID].push(req); return acc; }, {});
@@ -381,6 +421,8 @@ function renderPendingRequests() {
 function renderSupplierStatement(supplierCode, startDateStr, endDateStr) {
     const resultsContainer = document.getElementById('supplier-statement-results');
     const exportBtn = document.getElementById('btn-export-supplier-statement');
+    if(!resultsContainer || !exportBtn) return;
+    
     const supplier = findByKey(state.suppliers, 'supplierCode', supplierCode);
     if (!supplier) { exportBtn.disabled = true; return; }
     const financials = calculateSupplierFinancials();
@@ -401,6 +443,8 @@ function renderSupplierStatement(supplierCode, startDateStr, endDateStr) {
 function renderUnifiedConsumptionReport() {
     const resultsContainer = document.getElementById('consumption-report-results');
     const exportBtn = document.getElementById('btn-export-consumption-report');
+    if(!resultsContainer || !exportBtn) return;
+    
     const selectedBranches = Array.from(state.reportSelectedBranches);
     const selectedSections = Array.from(state.reportSelectedSections);
     const selectedItems = Array.from(state.reportSelectedItems);
