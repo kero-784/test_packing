@@ -1,5 +1,5 @@
 import { state, modalContext } from './state.js';
-import { showView, closeModal, showToast, setButtonLoading, openItemSelectorModal, openEditModal, openHistoryModal } from './ui.js';
+import { showView, closeModal, showToast, setButtonLoading, openItemSelectorModal, openEditModal } from './ui.js';
 import { postData } from './api.js';
 import { applyTranslations } from './i18n.js';
 import * as Render from './render.js';
@@ -13,7 +13,7 @@ export function attachEventListeners(reloadDataAndRefreshUI, refreshViewData) {
         });
     });
 
-    // 2. Sub-tabs
+    // 2. Sub-tabs Logic
     document.addEventListener('click', e => {
         const subTab = e.target.closest('.sub-nav-item');
         if (subTab) {
@@ -22,7 +22,7 @@ export function attachEventListeners(reloadDataAndRefreshUI, refreshViewData) {
         }
     });
 
-    // 3. Modals & Item Selection
+    // 3. Modals
     document.querySelectorAll('[data-context]').forEach(btn => {
         btn.addEventListener('click', e => openItemSelectorModal(e.currentTarget.dataset.context));
     });
@@ -38,56 +38,30 @@ export function attachEventListeners(reloadDataAndRefreshUI, refreshViewData) {
             }
         });
         
-        const renderMap = { 'receive': Render.renderReceiveListTable, 'issue': Render.renderIssueListTable, 'transfer': Render.renderTransferListTable, 'adjustment': Render.renderAdjustmentListTable };
-        if (renderMap[ctx]) renderMap[ctx]();
+        const renderFunc = Render[`render${ctx.charAt(0).toUpperCase() + ctx.slice(1)}ListTable`];
+        if (renderFunc) renderFunc();
         closeModal();
     });
 
-    // 4. Input Handling (Live Update)
-    document.addEventListener('input', e => {
-        if (e.target.classList.contains('table-input')) {
-            const el = e.target;
-            const tableId = el.closest('table').id;
-            const list = { 'table-receive-list':'currentReceiveList', 'table-issue-list':'currentIssueList', 'table-transfer-list':'currentTransferList', 'table-adjustment-list':'currentAdjustmentList' }[tableId];
-            
-            if (list && state[list][el.dataset.index]) {
-                state[list][el.dataset.index][el.dataset.field] = parseFloat(el.value) || 0;
-                if (tableId === 'table-receive-list') Render.updateReceiveGrandTotal();
-            }
-        }
-        if (e.target.id === 'item-inquiry-search') Render.renderItemInquiry(e.target.value.toLowerCase());
-    });
-
-    // 5. Submit Logic
-    document.getElementById('btn-submit-receive-batch')?.addEventListener('click', async (e) => {
-        const payload = {
-            type: 'receive',
-            batchId: `GRN-${Date.now()}`,
-            supplierCode: document.getElementById('receive-supplier').value,
-            branchCode: document.getElementById('receive-branch').value,
-            invoiceNumber: document.getElementById('receive-invoice').value,
-            date: new Date().toISOString(),
-            items: state.currentReceiveList
-        };
-        const res = await postData('addTransactionBatch', payload, e.currentTarget, showToast, setButtonLoading);
-        if (res) { state.currentReceiveList = []; Render.renderReceiveListTable(); reloadDataAndRefreshUI(); }
-    });
-
-    // 6. Common Actions
+    // 4. Global Actions
     document.addEventListener('click', e => {
         const btn = e.target.closest('button');
         if (!btn) return;
-        
         if (btn.classList.contains('btn-remove-row')) {
             const tableId = btn.closest('table').id;
-            const list = { 'table-receive-list':'currentReceiveList', 'table-issue-list':'currentIssueList', 'table-transfer-list':'currentTransferList', 'table-adjustment-list':'currentAdjustmentList' }[tableId];
-            state[list].splice(btn.dataset.index, 1);
-            Render[{ 'currentReceiveList':'renderReceiveListTable', 'currentIssueList':'renderIssueListTable', 'currentTransferList':'renderTransferListTable', 'currentAdjustmentList':'renderAdjustmentListTable' }[list]]();
+            const listKey = { 'table-receive-list':'currentReceiveList', 'table-issue-list':'currentIssueList', 'table-transfer-list':'currentTransferList', 'table-adjustment-list':'currentAdjustmentList' }[tableId];
+            state[listKey].splice(btn.dataset.index, 1);
+            Render[`render${listKey.charAt(7).toUpperCase() + listKey.slice(8, -4)}ListTable`]();
         }
-
         if (btn.classList.contains('btn-edit')) openEditModal(btn.dataset.type, btn.dataset.id);
-        if (btn.classList.contains('btn-history')) openHistoryModal(btn.dataset.id);
         if (btn.id === 'global-refresh-button') reloadDataAndRefreshUI();
         if (btn.classList.contains('close-button') || btn.classList.contains('modal-cancel')) closeModal();
+    });
+
+    document.getElementById('lang-switcher')?.addEventListener('change', e => {
+        state.currentLanguage = e.target.value;
+        localStorage.setItem('userLanguage', state.currentLanguage);
+        applyTranslations();
+        reloadDataAndRefreshUI();
     });
 }
