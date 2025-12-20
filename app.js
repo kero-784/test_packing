@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-// --- DOM ELEMENT REFERENCES ---
+    // --- DOM ELEMENT REFERENCES ---
     const loginUsernameInput = document.getElementById('login-username');
     const loginCodeInput = document.getElementById('login-code');
     const loginForm = document.getElementById('login-form');
@@ -26,12 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const formEditRecord = document.getElementById('form-edit-record');
 
     // --- GLOBAL HELPERS (Required by ui-renderers.js) ---
-    window.updateReceiveGrandTotal = () => { let grandTotal = 0; (state.currentReceiveList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); document.getElementById('receive-grand-total').textContent = `${grandTotal.toFixed(2)} EGP`; };
-    window.updateTransferGrandTotal = () => { let grandTotalQty = 0; (state.currentTransferList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); document.getElementById('transfer-grand-total').textContent = grandTotalQty.toFixed(2); };
-    window.updateIssueGrandTotal = () => { let grandTotalQty = 0; (state.currentIssueList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); document.getElementById('issue-grand-total').textContent = grandTotalQty.toFixed(2); };
-    window.updatePOGrandTotal = () => { let grandTotal = 0; (state.currentPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); document.getElementById('po-grand-total').textContent = `${grandTotal.toFixed(2)} EGP`; };
-    window.updatePOEditGrandTotal = () => { let grandTotal = 0; (state.currentEditingPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); document.getElementById('edit-po-grand-total').textContent = `${grandTotal.toFixed(2)} EGP`; };
-    window.updateReturnGrandTotal = () => { let grandTotal = 0; (state.currentReturnList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); document.getElementById('return-grand-total').textContent = `${grandTotal.toFixed(2)} EGP`; };
+    window.updateReceiveGrandTotal = () => { let grandTotal = 0; (state.currentReceiveList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('receive-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; };
+    window.updateTransferGrandTotal = () => { let grandTotalQty = 0; (state.currentTransferList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); const el = document.getElementById('transfer-grand-total'); if(el) el.textContent = grandTotalQty.toFixed(2); };
+    window.updateIssueGrandTotal = () => { let grandTotalQty = 0; (state.currentIssueList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); const el = document.getElementById('issue-grand-total'); if(el) el.textContent = grandTotalQty.toFixed(2); };
+    window.updatePOGrandTotal = () => { let grandTotal = 0; (state.currentPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('po-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; };
+    window.updatePOEditGrandTotal = () => { let grandTotal = 0; (state.currentEditingPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('edit-po-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; };
+    window.updateReturnGrandTotal = () => { let grandTotal = 0; (state.currentReturnList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('return-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; };
 
     // --- CORE INITIALIZATION ---
     function init() {
@@ -181,7 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'payments':
                 populateOptions(document.getElementById('payment-supplier-select'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                 renderPaymentList();
-                document.getElementById('btn-select-invoices').disabled = true;
+                const btnInv = document.getElementById('btn-select-invoices');
+                if(btnInv) btnInv.disabled = true;
                 break;
             case 'reports':
                 populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
@@ -200,11 +201,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
                 
                 renderTransactionHistory({
-                    startDate: document.getElementById('tx-filter-start-date').value,
-                    endDate: document.getElementById('tx-filter-end-date').value,
-                    type: document.getElementById('tx-filter-type').value,
-                    branch: document.getElementById('tx-filter-branch').value,
-                    searchTerm: document.getElementById('transaction-search').value
+                    startDate: document.getElementById('tx-filter-start-date')?.value,
+                    endDate: document.getElementById('tx-filter-end-date')?.value,
+                    type: document.getElementById('tx-filter-type')?.value,
+                    branch: document.getElementById('tx-filter-branch')?.value,
+                    searchTerm: document.getElementById('transaction-search')?.value
                 }); 
                 break;
             case 'user-management':
