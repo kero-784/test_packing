@@ -2,10 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Viewport optimized for mobile/PWA (disables zoom, handles notches) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#4A90E2">
     <title>Packing Stock Control</title>
+    
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS Support Tags -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1043/1043445.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StockWise">
+
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css">
+    
     <!-- External Library for Excel Export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -27,6 +40,12 @@
                     <input type="password" id="login-code" required autocomplete="current-password">
                 </div>
                 <button type="submit" class="primary" style="width:100%; margin-top:10px;" data-translate-key="login">Login</button>
+                
+                <!-- NEW INSTALL BUTTON (Hidden by default, shown by app.js if supported) -->
+                <button type="button" id="btn-install-pwa" class="secondary" style="width:100%; margin-top:10px; display: none; justify-content: center;">
+                    <svg style="width:20px;height:20px;margin-right:8px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    Install App
+                </button>
             </form>
             <div id="login-error" class="login-error"></div>
             <div id="login-loader" style="display: none;">
@@ -65,7 +84,7 @@
                 <li class="nav-item"><a href="#" data-view="transaction-history"><svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3Z"></path></svg><span data-translate-key="transaction_history">Transaction History</span></a></li>
                 <li class="nav-item"><a href="#" data-view="setup"><svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19,3H5C3.89,3 3,3.89 3,5V19C3,20.11 3.9,21 5,21H19C20.11,21 21,20.11 21,19V5C21,3.89 20.1,3 19,3M13.5,13H11V15H9V13H6.5V11H9V9H11V11H13.5V13M12,12Z"/></svg><span data-translate-key="add_data">Add Data</span></a></li>
                 <li class="nav-item"><a href="#" data-view="master-data"><svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"><path d="M16 20H20V16H16M16 14H20V10H16M14 20H10V16H14M14 14H10V10H14M8 20H4V16H8M8 14H4V10H8M22 8V4H2V8H22M20 6H16V6.03H4V6H4V6H20M2 22V10H0V22A2 2 0 0 0 2 24H22V22Z" /></svg><span data-translate-key="master_data">Master Data</span></a></li>
-                <li class="nav-item"><a href="#" data-view="user-management"><svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"><path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z" /></svg><span data-translate-key="user_management">User Management</span></a></li>
+                <li class="nav-item"><a href="#" data-view="user-management"><svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"><path d="M12,1L9,4H15L12,1M19,6H5A2,2 0 0,0 3,8V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V8A2,2 0 0,0 19,6M12,17A3,3 0 0,1 9,14A3,3 0 0,1 12,11A3,3 0 0,1 15,14A3,3 0 0,1 12,17M12,6A1.5,1.5 0 0,1 13.5,7.5A1.5,1.5 0 0,1 12,9A1.5,1.5 0 0,1 10.5,7.5A1.5,1.5 0 0,1 12,6Z" /></svg><span data-translate-key="user_management">User Management</span></a></li>
                 <li class="nav-item"><a href="#" data-view="backup"><svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12,3C7.58,3 4,4.79 4,7V17C4,19.21 7.58,21 12,21C16.42,21 20,19.21 20,17V7C20,4.79 16.42,3 12,3M12,5C15.31,5 18,6.34 18,8C18,9.66 15.31,11 12,11C8.69,11 6,9.66 6,8C6,6.34 8.69,5 12,5M18,13C18,14.66 15.31,16 12,16C8.69,16 6,14.66 6,13V12.42C7.75,13.42 9.79,14 12,14C14.21,14 16.25,13.42 18,12.42V13M18,17C18,18.66 15.31,20 12,20C8.69,20 6,18.66 6,17V16.42C7.75,17.42 9.79,18 12,18C14.21,18 16.25,17.42 18,16.42V17Z"></path></svg><span data-translate-key="backup_restore">Backup</span></a></li>
                 <li class="nav-item"><a href="#" data-view="activity-log"><svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M15,12A1,1 0 0,1 14,11A1,1 0 0,1 15,10A1,1 0 0,1 16,11A1,1 0 0,1 15,12M10,12A1,1 0 0,1 9,11A1,1 0 0,1 10,10A1,1 0 0,1 11,11A1,1 0 0,1 10,12M5,12A1,1 0 0,1 4,11A1,1 0 0,1 5,10A1,1 0 0,1 6,11A1,1 0 0,1 5,12M21,2V6H3V2H21M3,8H21V20H3V8M5,10V20H19V10H5Z"></path></svg><span data-translate-key="activity_log">Activity Log</span></a></li>
                 <li class="nav-item nav-item-logout"><a href="#" id="btn-logout"><svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z"></path></svg><span data-translate-key="logout">Logout</span></a></li>
@@ -312,5 +331,16 @@
     <script src="calculations.js"></script>
     <script src="ui-renderers.js"></script>
     <script src="app.js"></script>
+    
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.log('Service Worker registration failed', err));
+            });
+        }
+    </script>
 </body>
 </html>
