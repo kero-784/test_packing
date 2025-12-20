@@ -4,45 +4,29 @@ import { findByKey, userCan, getVisibleBranchesForCurrentUser } from './utils.js
 import { calculateStockLevels, calculateSupplierFinancials } from './calculations.js';
 import { openEditModal, openHistoryModal } from './ui.js';
 
-// --- Grand Totals ---
 export function updateReceiveGrandTotal() { 
-    let gt = 0; 
-    (state.currentReceiveList || []).forEach(i => gt += (parseFloat(i.quantity) || 0) * (parseFloat(i.cost) || 0)); 
-    const el = document.getElementById('receive-grand-total');
-    if (el) el.textContent = `${gt.toFixed(2)} EGP`; 
+    let gt = 0; state.currentReceiveList.forEach(i => gt += (parseFloat(i.quantity) || 0) * (parseFloat(i.cost) || 0)); 
+    const el = document.getElementById('receive-grand-total'); if (el) el.textContent = `${gt.toFixed(2)} EGP`; 
 }
 export function updateTransferGrandTotal() { 
-    let gt = 0; 
-    (state.currentTransferList || []).forEach(i => gt += (parseFloat(i.quantity) || 0)); 
-    const el = document.getElementById('transfer-grand-total');
-    if (el) el.textContent = gt.toFixed(2); 
+    let gt = 0; state.currentTransferList.forEach(i => gt += (parseFloat(i.quantity) || 0)); 
+    const el = document.getElementById('transfer-grand-total'); if (el) el.textContent = gt.toFixed(2); 
 }
 export function updateIssueGrandTotal() { 
-    let gt = 0; 
-    (state.currentIssueList || []).forEach(i => gt += (parseFloat(i.quantity) || 0)); 
-    const el = document.getElementById('issue-grand-total');
-    if (el) el.textContent = gt.toFixed(2); 
+    let gt = 0; state.currentIssueList.forEach(i => gt += (parseFloat(i.quantity) || 0)); 
+    const el = document.getElementById('issue-grand-total'); if (el) el.textContent = gt.toFixed(2); 
 }
 
-// --- Tables ---
 export function renderItemsTable(data = state.items) {
     const tbody = document.querySelector('#table-items tbody');
     if (!tbody) return;
     tbody.innerHTML = data.map(item => `
         <tr>
-            <td>${item.code}</td>
-            <td>${item.name}</td>
-            <td>${item.category}</td>
-            <td>${item.unit}</td>
-            <td>${(parseFloat(item.cost) || 0).toFixed(2)} EGP</td>
-            <td>
-                <div class="action-buttons">
-                    <button class="secondary small btn-edit" data-type="item" data-id="${item.code}">Edit</button>
-                    <button class="secondary small btn-history" data-id="${item.code}">History</button>
-                </div>
-            </td>
+            <td>${item.code}</td><td>${item.name}</td><td>${item.category}</td><td>${item.unit}</td>
+            <td>${(parseFloat(item.cost) || 0).toFixed(2)}</td>
+            <td><button class="secondary small btn-edit" data-type="item" data-id="${item.code}">Edit</button></td>
         </tr>
-    `).join('') || '<tr><td colspan="6" style="text-align:center;">No items found.</td></tr>';
+    `).join('') || '<tr><td colspan="6">No items.</td></tr>';
 }
 
 export function renderSuppliersTable(data = state.suppliers) {
@@ -51,47 +35,35 @@ export function renderSuppliersTable(data = state.suppliers) {
     const financials = calculateSupplierFinancials();
     tbody.innerHTML = data.map(s => `
         <tr>
-            <td>${s.supplierCode}</td>
-            <td>${s.name}</td>
-            <td>${s.contact}</td>
-            <td>${(financials[s.supplierCode]?.balance || 0).toFixed(2)} EGP</td>
+            <td>${s.supplierCode}</td><td>${s.name}</td><td>${s.contact}</td>
+            <td>${(financials[s.supplierCode]?.balance || 0).toFixed(2)}</td>
             <td><button class="secondary small btn-edit" data-type="supplier" data-id="${s.supplierCode}">Edit</button></td>
         </tr>
-    `).join('') || '<tr><td colspan="5" style="text-align:center;">No suppliers found.</td></tr>';
+    `).join('');
 }
 
 export function renderBranchesTable(data = state.branches) {
     const tbody = document.querySelector('#table-branches tbody');
     if (!tbody) return;
     tbody.innerHTML = data.map(b => `
-        <tr>
-            <td>${b.branchCode}</td>
-            <td>${b.branchName}</td>
-            <td><button class="secondary small btn-edit" data-type="branch" data-id="${b.branchCode}">Edit</button></td>
-        </tr>
-    `).join('') || '<tr><td colspan="3" style="text-align:center;">No branches found.</td></tr>';
+        <tr><td>${b.branchCode}</td><td>${b.branchName}</td><td><button class="secondary small btn-edit" data-type="branch" data-id="${b.branchCode}">Edit</button></td></tr>
+    `).join('');
 }
 
 export function renderSectionsTable(data = state.sections) {
     const tbody = document.querySelector('#table-sections tbody');
     if (!tbody) return;
     tbody.innerHTML = data.map(s => `
-        <tr>
-            <td>${s.sectionCode}</td>
-            <td>${s.sectionName}</td>
-            <td><button class="secondary small btn-edit" data-type="section" data-id="${s.sectionCode}">Edit</button></td>
-        </tr>
-    `).join('') || '<tr><td colspan="3" style="text-align:center;">No sections found.</td></tr>';
+        <tr><td>${s.sectionCode}</td><td>${s.sectionName}</td><td><button class="secondary small btn-edit" data-type="section" data-id="${s.sectionCode}">Edit</button></td></tr>
+    `).join('');
 }
 
-// --- Dynamic Input Tables ---
 export function renderReceiveListTable() {
     const tbody = document.querySelector('#table-receive-list tbody');
     if (!tbody) return;
     tbody.innerHTML = state.currentReceiveList.map((item, idx) => `
         <tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName}</td>
+            <td>${item.itemCode}</td><td>${item.itemName}</td>
             <td><input type="number" class="table-input" data-index="${idx}" data-field="quantity" value="${item.quantity}"></td>
             <td><input type="number" class="table-input" data-index="${idx}" data-field="cost" value="${item.cost}"></td>
             <td>${((item.quantity || 0) * (item.cost || 0)).toFixed(2)}</td>
@@ -106,8 +78,7 @@ export function renderIssueListTable() {
     if (!tbody) return;
     tbody.innerHTML = state.currentIssueList.map((item, idx) => `
         <tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName}</td>
+            <td>${item.itemCode}</td><td>${item.itemName}</td>
             <td><input type="number" class="table-input" data-index="${idx}" data-field="quantity" value="${item.quantity}"></td>
             <td><button class="danger small btn-remove-row" data-index="${idx}">X</button></td>
         </tr>
@@ -120,8 +91,7 @@ export function renderTransferListTable() {
     if (!tbody) return;
     tbody.innerHTML = state.currentTransferList.map((item, idx) => `
         <tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName}</td>
+            <td>${item.itemCode}</td><td>${item.itemName}</td>
             <td><input type="number" class="table-input" data-index="${idx}" data-field="quantity" value="${item.quantity}"></td>
             <td><button class="danger small btn-remove-row" data-index="${idx}">X</button></td>
         </tr>
@@ -134,15 +104,13 @@ export function renderAdjustmentListTable() {
     if (!tbody) return;
     tbody.innerHTML = state.currentAdjustmentList.map((item, idx) => `
         <tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName}</td>
+            <td>${item.itemCode}</td><td>${item.itemName}</td>
             <td><input type="number" class="table-input" data-index="${idx}" data-field="physicalCount" value="${item.physicalCount || 0}"></td>
             <td><button class="danger small btn-remove-row" data-index="${idx}">X</button></td>
         </tr>
     `).join('');
 }
 
-// --- Views ---
 export function renderItemCentricStockView() {
     const container = document.getElementById('item-centric-stock-container');
     if (!container) return;
@@ -154,8 +122,7 @@ export function renderItemCentricStockView() {
         let total = 0;
         branches.forEach(b => {
             const q = stock[b.branchCode]?.[item.code]?.quantity || 0;
-            total += q;
-            html += `<td>${q.toFixed(2)}</td>`;
+            total += q; html += `<td>${q.toFixed(2)}</td>`;
         });
         html += `<td><strong>${total.toFixed(2)}</strong></td></tr>`;
     });
@@ -168,28 +135,21 @@ export function renderItemInquiry(term) {
     if (!term) { container.innerHTML = ''; return; }
     const stock = calculateStockLevels();
     const filtered = state.items.filter(i => i.name.toLowerCase().includes(term) || i.code.toLowerCase().includes(term));
-    container.innerHTML = filtered.slice(0, 5).map(item => {
+    container.innerHTML = filtered.slice(0, 3).map(item => {
         let rows = '';
         state.branches.forEach(b => {
             const q = stock[b.branchCode]?.[item.code]?.quantity || 0;
             if(q > 0) rows += `<tr><td>${b.branchName}</td><td>${q.toFixed(2)}</td></tr>`;
         });
-        return `<h4>${item.name} (${item.code})</h4><table>${rows || '<tr><td>No stock</td></tr>'}</table>`;
-    }).join('<hr>');
+        return `<h4>${item.name}</h4><table>${rows || '<tr><td>No stock</td></tr>'}</table>`;
+    }).join('');
 }
 
 export function renderTransactionHistory() {
     const tbody = document.querySelector('#table-transaction-history tbody');
     if (!tbody) return;
-    tbody.innerHTML = [...state.transactions].reverse().slice(0, 50).map(tx => `
-        <tr>
-            <td>${new Date(tx.date).toLocaleDateString()}</td>
-            <td>${tx.type.toUpperCase()}</td>
-            <td>${tx.ref || tx.batchId}</td>
-            <td>${tx.itemCode}</td>
-            <td>${tx.quantity}</td>
-            <td><button class="secondary small">View</button></td>
-        </tr>
+    tbody.innerHTML = [...state.transactions].reverse().slice(0, 20).map(tx => `
+        <tr><td>${new Date(tx.date).toLocaleDateString()}</td><td>${tx.type}</td><td>${tx.ref || tx.batchId}</td><td>${tx.itemCode}</td><td>${tx.quantity}</td><td>View</td></tr>
     `).join('');
 }
 
@@ -205,15 +165,11 @@ export function updatePendingRequestsWidget() {
 export function renderUserManagementUI() {
     const tbody = document.querySelector('#table-users tbody');
     if (!tbody) return;
-    tbody.innerHTML = state.allUsers.map(u => `
-        <tr><td>${u.Username}</td><td>${u.Name}</td><td>${u.RoleName}</td><td>Active</td><td><button class="secondary small btn-edit" data-type="user" data-id="${u.Username}">Edit</button></td></tr>
-    `).join('');
+    tbody.innerHTML = state.allUsers.map(u => `<tr><td>${u.Username}</td><td>${u.Name}</td><td>${u.RoleName}</td><td><button class="secondary small btn-edit" data-type="user" data-id="${u.Username}">Edit</button></td></tr>`).join('');
 }
 
 export function renderActivityLog() {
     const tbody = document.querySelector('#table-activity-log tbody');
     if (!tbody) return;
-    tbody.innerHTML = state.activityLog.slice(-50).reverse().map(log => `
-        <tr><td>${new Date(log.Timestamp).toLocaleString()}</td><td>${log.User}</td><td>${log.Action}</td><td>${log.Description}</td></tr>
-    `).join('');
+    tbody.innerHTML = state.activityLog.slice(-20).reverse().map(log => `<tr><td>${new Date(log.Timestamp).toLocaleString()}</td><td>${log.User}</td><td>${log.Action}</td><td>${log.Description}</td></tr>`).join('');
 }
