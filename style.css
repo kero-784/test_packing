@@ -489,3 +489,60 @@ html[dir="rtl"] .consumption-item-row td:first-child { padding-right: 64px !impo
         display: none;
     }
 }
+
+
+/* --- TABLE & LAYOUT FIXES --- */
+
+/* Force containers to respect parent width */
+.card, .report-area {
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Scrollable Tables Container */
+.report-area {
+    overflow-x: auto; /* Enable horizontal scroll */
+    -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+    border: 1px solid var(--border-color); /* Optional: define boundary */
+    border-radius: var(--border-radius);
+    margin-top: 15px;
+}
+
+/* Table Styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px; /* Force min width so it scrolls instead of squishing */
+}
+
+th, td {
+    white-space: nowrap; /* Prevent text wrapping from breaking layout */
+    padding: 12px 16px;
+}
+
+/* Fix for specific table inputs staying within cells */
+table input.table-input {
+    width: 100%;
+    min-width: 80px; /* Ensure inputs aren't too small */
+    box-sizing: border-box;
+}
+
+/* Mobile specific table adjustments */
+@media (max-width: 768px) {
+    .main-content {
+        padding: 80px 16px 100px 16px; /* Ensure bottom padding for scrolling */
+        overflow-x: hidden; /* Prevent body scroll */
+    }
+    
+    .card {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    /* Reduce padding in table cells on mobile to save space */
+    th, td {
+        padding: 10px 8px;
+        font-size: 13px;
+    }
+}
