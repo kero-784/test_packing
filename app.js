@@ -84,8 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const visibleNavLink = document.querySelector('#main-nav .nav-item:not([style*="display: none"]) a');
         if(visibleNavLink) {
             firstVisibleView = visibleNavLink.dataset.view;
-        } else {
-            Logger.warn('No visible nav links found, defaulting to dashboard.');
         }
 
         showView(firstVisibleView);
@@ -94,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePendingRequestsWidget();
     };
 
-    // --- NAVIGATION LOGIC (Tabs & Sub-tabs) ---
+    // --- NAVIGATION LOGIC ---
     window.showView = (viewId, subViewId = null) => {
         Logger.info(`showView called for: ${viewId} (Sub: ${subViewId})`);
         
@@ -113,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const activeLink = document.querySelector(`[data-view="${viewId}"]`);
             if (activeLink) {
                 activeLink.classList.add('active');
-                // Update Title
                 const titleSpan = activeLink.querySelector('span');
                 if (titleSpan) {
                     const viewTitleKey = titleSpan.dataset.translateKey;
@@ -146,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subViewBtn = parentView.querySelector(`[data-subview="${targetSubViewId}"]`);
                     if(subViewBtn) subViewBtn.classList.add('active');
                     
-                    // Activate content div (Pattern: subview-ID)
+                    // Activate content div
                     const subViewToShow = parentView.querySelector(`#subview-${targetSubViewId}`);
                     if (subViewToShow) {
                         subViewToShow.classList.add('active');
@@ -185,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                     
                 case 'setup':
-                    // Permission checks for visibility
                     const formItem = document.getElementById('form-add-item');
                     if(formItem) formItem.parentElement.style.display = userCan('createItem') ? 'block' : 'none';
                     const formSupplier = document.getElementById('form-add-supplier');
@@ -262,20 +258,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
                     const branchCount = document.getElementById('consumption-branch-count');
                     if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
-                    const sectionCount = document.getElementById('consumption-section-count');
-                    if(sectionCount) sectionCount.textContent = `${state.reportSelectedSections.size} selected`;
-                    const itemCount = document.getElementById('consumption-item-count');
-                    if(itemCount) itemCount.textContent = `${state.reportSelectedItems.size} selected`;
                     break;
                     
                 case 'stock-levels':
                     const titleEl = document.getElementById('stock-levels-title');
                     if(titleEl) titleEl.textContent = userCan('viewAllBranches') ? _t('stock_by_item_all_branches') : _t('stock_by_item_your_branch');
                     renderItemCentricStockView();
-                    const itemInq = document.getElementById('item-inquiry-search');
-                    if(itemInq) itemInq.value = '';
-                    const stockSearch = document.getElementById('stock-levels-search');
-                    if(stockSearch) stockSearch.value = '';
                     break;
                     
                 case 'transaction-history': 
@@ -535,14 +523,91 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { code: document.getElementById('item-code').value, barcode: document.getElementById('item-barcode').value, name: document.getElementById('item-name').value, unit: document.getElementById('item-unit').value, category: document.getElementById('item-category').value, supplierCode: document.getElementById('item-supplier').value, cost: parseFloat(document.getElementById('item-cost').value) }; const result = await postData('addItem', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('item')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
             });
         }
-        // ... Add listeners for other forms similarly with null checks
+        
         const addSupplierForm = document.getElementById('form-add-supplier');
         if (addSupplierForm) {
             addSupplierForm.addEventListener('submit', async e => {
                  e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { supplierCode: document.getElementById('supplier-code').value, name: document.getElementById('supplier-name').value, contact: document.getElementById('supplier-contact').value }; const result = await postData('addSupplier', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('supplier')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); } 
             });
         }
-        // ... (Repeating robust pattern for all forms from original)
+
+        const addBranchForm = document.getElementById('form-add-branch');
+        if (addBranchForm) {
+            addBranchForm.addEventListener('submit', async e => {
+                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { branchCode: document.getElementById('branch-code').value, branchName: document.getElementById('branch-name').value }; const result = await postData('addBranch', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('branch')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
+            });
+        }
+
+        const addSectionForm = document.getElementById('form-add-section');
+        if (addSectionForm) {
+            addSectionForm.addEventListener('submit', async e => {
+                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { sectionCode: document.getElementById('section-code').value, sectionName: document.getElementById('section-name').value }; const result = await postData('addSection', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('section')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
+            });
+        }
+
+        // Transaction Submits
+        const submitReceive = document.getElementById('btn-submit-receive-batch');
+        if (submitReceive) {
+            submitReceive.addEventListener('click', async (e) => {
+                const btn = e.currentTarget; 
+                let branchCode = document.getElementById('receive-branch').value; 
+                const supplierCode = document.getElementById('receive-supplier').value, invoiceNumber = document.getElementById('receive-invoice').value, notes = document.getElementById('receive-notes').value, poId = document.getElementById('receive-po-select').value; 
+                if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ branch: true }); if(!context) return; branchCode = context.branch; } 
+                if (!userCan('opReceiveWithoutPO') && !poId) { showToast(_t('select_po_first_toast'), 'error'); return; } 
+                if (!supplierCode || !branchCode || !invoiceNumber || state.currentReceiveList.length === 0) { showToast(_t('fill_required_fields_toast'), 'error'); return; } 
+                const payload = { type: 'receive', batchId: `GRN-${Date.now()}`, supplierCode, branchCode, invoiceNumber, poId, date: new Date().toISOString(), items: state.currentReceiveList.map(i => ({...i, type: 'receive'})), notes }; 
+                await handleTransactionSubmit(payload, btn); 
+            });
+        }
+
+        const submitTransfer = document.getElementById('btn-submit-transfer-batch');
+        if(submitTransfer) {
+            submitTransfer.addEventListener('click', async (e) => { const btn = e.currentTarget; let fromBranchCode = document.getElementById('transfer-from-branch').value, toBranchCode = document.getElementById('transfer-to-branch').value; const notes = document.getElementById('transfer-notes').value, ref = document.getElementById('transfer-ref').value; if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ fromBranch: true, toBranch: true }); if(!context) return; fromBranchCode = context.fromBranch; toBranchCode = context.toBranch; } if (!fromBranchCode || !toBranchCode || fromBranchCode === toBranchCode || state.currentTransferList.length === 0) { showToast('Please select valid branches and add at least one item.', 'error'); return; } const payload = { type: 'transfer_out', batchId: ref, ref: ref, fromBranchCode, toBranchCode, date: new Date().toISOString(), items: state.currentTransferList.map(i => ({...i, type: 'transfer_out'})), notes }; await handleTransactionSubmit(payload, btn); });
+        }
+
+        const submitIssue = document.getElementById('btn-submit-issue-batch');
+        if(submitIssue) {
+            submitIssue.addEventListener('click', async(e) => { const btn = e.currentTarget; let fromBranchCode = document.getElementById('issue-from-branch').value, sectionCode = document.getElementById('issue-to-section').value; const ref = document.getElementById('issue-ref').value, notes = document.getElementById('issue-notes').value; if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ fromBranch: true, toSection: true }); if(!context) return; fromBranchCode = context.fromBranch; sectionCode = context.toSection; } if (!fromBranchCode || !sectionCode || !ref || state.currentIssueList.length === 0) { showToast('Please fill all issue details and select at least one item.', 'error'); return; } const payload = { type: 'issue', batchId: ref, ref: ref, fromBranchCode, sectionCode, date: new Date().toISOString(), items: state.currentIssueList.map(i => ({...i, type: 'issue'})), notes }; await handleTransactionSubmit(payload, btn); });
+        }
+
+        const submitPO = document.getElementById('btn-submit-po');
+        if(submitPO) {
+            submitPO.addEventListener('click', async (e) => { const btn = e.currentTarget; const supplierCode = document.getElementById('po-supplier').value, poId = document.getElementById('po-ref').value, notes = document.getElementById('po-notes').value; if (!supplierCode || state.currentPOList.length === 0) { showToast('Please select a supplier and add items.', 'error'); return; } const totalValue = state.currentPOList.reduce((acc, item) => acc + ((parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0)), 0); const payload = { type: 'po', poId, supplierCode, date: new Date().toISOString(), items: state.currentPOList, totalValue, notes }; await handleTransactionSubmit(payload, btn); });
+        }
+
+        const submitReturn = document.getElementById('btn-submit-return');
+        if(submitReturn) {
+            submitReturn.addEventListener('click', async (e) => { const btn = e.currentTarget; const supplierCode = document.getElementById('return-supplier').value; let fromBranchCode = document.getElementById('return-branch').value; const ref = document.getElementById('return-ref').value, notes = document.getElementById('return-notes').value; if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ fromBranch: true }); if(!context) return; fromBranchCode = context.fromBranch; } if (!supplierCode || !fromBranchCode || !ref || state.currentReturnList.length === 0) { showToast('Please fill all required fields and add items.', 'error'); return; } const payload = { type: 'return_out', batchId: `RTN-${Date.now()}`, ref: ref, supplierCode, fromBranchCode, date: new Date().toISOString(), items: state.currentReturnList.map(i => ({...i, type: 'return_out'})), notes }; await handleTransactionSubmit(payload, btn); });
+        }
+
+        const submitRequest = document.getElementById('btn-submit-request');
+        if(submitRequest) {
+            submitRequest.addEventListener('click', async(e) => { const btn = e.currentTarget; let fromSection = state.currentUser.AssignedSectionCode, toBranch = state.currentUser.AssignedBranchCode; const requestType = document.getElementById('request-type').value; const notes = document.getElementById('request-notes').value; if(userCan('viewAllBranches') && (!fromSection || !toBranch)) { const context = await requestAdminContext({ toBranch: true, fromSection: true }); if(!context) return; fromSection = context.fromSection; toBranch = context.toBranch; } if(state.currentRequestList.length === 0){ showToast('Please select items for your request.', 'error'); return; } if(!fromSection || !toBranch){ showToast('Your user is not assigned a branch/section to make requests. Please contact an admin.', 'error'); return; } const payload = { requestId: `REQ-${Date.now()}`, requestType, notes, items: state.currentRequestList, FromSection: fromSection, ToBranch: toBranch }; const result = await postData('addItemRequest', payload, btn); if(result){ showToast('Request submitted successfully!', 'success'); state.currentRequestList = []; document.getElementById('form-create-request').reset(); renderRequestListTable(); reloadDataAndRefreshUI(); }});
+        }
+        
+        const submitAdjustment = document.getElementById('btn-submit-adjustment');
+        if(submitAdjustment) {
+            submitAdjustment.addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                let branchCode = document.getElementById('adjustment-branch').value;
+                const ref = document.getElementById('adjustment-ref').value;
+                const notes = document.getElementById('adjustment-notes').value;
+                if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ branch: true }); if(!context) return; branchCode = context.branch; }
+                if (!branchCode || !ref || !state.currentAdjustmentList || state.currentAdjustmentList.length === 0) { showToast('Please select a branch, provide a reference, and add items to adjust.', 'error'); return; }
+                const stock = calculateStockLevels();
+                const adjustmentItems = state.currentAdjustmentList.map(item => {
+                    const systemQty = (stock[branchCode]?.[item.itemCode]?.quantity) || 0;
+                    const physicalCount = item.physicalCount || 0;
+                    const adjustmentQty = physicalCount - systemQty;
+                    if (Math.abs(adjustmentQty) < 0.01) return null;
+                    return { itemCode: item.itemCode, quantity: Math.abs(adjustmentQty), type: adjustmentQty > 0 ? 'adjustment_in' : 'adjustment_out', cost: findByKey(state.items, 'code', item.itemCode)?.cost || 0 };
+                }).filter(Boolean);
+                if (adjustmentItems.length === 0) { showToast('No adjustments needed.', 'info'); return; }
+                const payload = { type: 'stock_adjustment', batchId: `ADJ-${Date.now()}`, ref: ref, fromBranchCode: branchCode, notes: notes, items: adjustmentItems };
+                await handleTransactionSubmit(payload, btn);
+                state.currentAdjustmentList = []; renderAdjustmentListTable(); document.getElementById('form-adjustment-details').reset();
+            });
+        }
         
         const payForm = document.getElementById('form-record-payment');
         if(payForm) {
@@ -561,6 +626,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 const payload = { supplierCode, method, date: new Date().toISOString(), totalAmount, payments };
                 const result = await postData('addPaymentBatch', payload, btn);
                 if (result) { showToast('Payment recorded!', 'success'); generatePaymentVoucher(payload); state.invoiceModalSelections.clear(); document.getElementById('form-record-payment').reset(); renderPaymentList(); reloadDataAndRefreshUI(); }
+            });
+        }
+        
+        const finAdjForm = document.getElementById('form-financial-adjustment');
+        if(finAdjForm) {
+            finAdjForm.addEventListener('submit', async(e) => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button[type="submit"]');
+                const supplierCode = document.getElementById('fin-adj-supplier').value;
+                const balance = parseFloat(document.getElementById('fin-adj-balance').value);
+                
+                if (!supplierCode || isNaN(balance) || balance < 0) {
+                    showToast('Please select a supplier and enter a valid opening balance.', 'error');
+                    return;
+                }
+                
+                if (!confirm(`Are you sure you want to set the opening balance for this supplier to ${balance.toFixed(2)} EGP? This should only be done once.`)) {
+                    return;
+                }
+
+                const payload = {
+                    supplierCode: supplierCode,
+                    balance: balance,
+                    ref: `OB-${supplierCode}`
+                };
+                
+                const result = await postData('financialAdjustment', payload, btn);
+                if (result) {
+                    showToast('Supplier opening balance set successfully!', 'success');
+                    e.target.reset();
+                    await reloadDataAndRefreshUI();
+                }
             });
         }
 
@@ -646,19 +743,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- HELPER FUNCTIONS ---
-    function setupSearch(inputId, renderFn, dataKey, searchKeys) { 
-        const searchInput = document.getElementById(inputId); 
-        if (!searchInput) {
-            Logger.warn(`Search input #${inputId} not found in DOM.`);
-            return; 
+    // --- LOGIC HELPERS ---
+    async function handleTransactionSubmit(payload, buttonEl) {
+        const action = payload.type === 'po' ? 'addPurchaseOrder' : 'addTransactionBatch';
+        const result = await postData(action, payload, buttonEl);
+        if (result) {
+            const typeKey = payload.type.replace(/_/g,'');
+            if (payload.type === 'receive') { state.currentReceiveList = []; document.getElementById('form-receive-details').reset(); renderReceiveListTable(); }
+            else if (payload.type === 'transfer_out') { generateTransferDocument(result.data); state.currentTransferList = []; document.getElementById('form-transfer-details').reset(); document.getElementById('transfer-ref').value = generateId('TRN'); renderTransferListTable(); }
+            else if (payload.type === 'issue') { generateIssueDocument(result.data); state.currentIssueList = []; document.getElementById('form-issue-details').reset(); document.getElementById('issue-ref').value = generateId('ISN'); renderIssueListTable(); }
+            else if (payload.type === 'po') { state.currentPOList = []; document.getElementById('form-po-details').reset(); document.getElementById('po-ref').value = generateId('PO'); renderPOListTable(); }
+            else if (payload.type === 'return_out') { generateReturnDocument(result.data); state.currentReturnList = []; document.getElementById('form-return-details').reset(); renderReturnListTable(); }
+            showToast(_t('tx_processed_toast', {txType: _t(typeKey)}), 'success');
+            await reloadDataAndRefreshUI();
         }
-        searchInput.addEventListener('input', e => { 
-            const searchTerm = e.target.value.toLowerCase(); 
-            const dataToFilter = state[dataKey] || []; 
-            renderFn(searchTerm ? dataToFilter.filter(item => searchKeys.some(key => item[key] && String(item[key]).toLowerCase().includes(searchTerm))) : dataToFilter); 
-        }); 
     }
+
+    function setupSearch(inputId, renderFn, dataKey, searchKeys) { const searchInput = document.getElementById(inputId); if (!searchInput) return; searchInput.addEventListener('input', e => { const searchTerm = e.target.value.toLowerCase(); const dataToFilter = state[dataKey] || []; renderFn(searchTerm ? dataToFilter.filter(item => searchKeys.some(key => item[key] && String(item[key]).toLowerCase().includes(searchTerm))) : dataToFilter); }); }
     
     function setupInputTableListeners(tableId, listName, rendererFn) {
         const table = document.getElementById(tableId); if (!table) return;
@@ -712,7 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- MODAL FUNCTIONS ---
+    // --- MODAL FUNCTIONS RE-IMPLEMENTATION ---
     function closeModal() { document.querySelectorAll('.modal-overlay').forEach(modal => modal.classList.remove('active')); modalSearchInput.value = ''; modalContext = null; }
 
     function openItemSelectorModal(event) {
@@ -1051,6 +1152,5 @@ document.addEventListener('DOMContentLoaded', () => {
         if(await postData('editInvoice', payload, btn)) { showToast('Invoice updated', 'success'); closeModal(); reloadDataAndRefreshUI(); }
     }
 
-    // Start App
     init();
 });
