@@ -35,8 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
         Logger.info(`Switching view to: ${viewId}` + (subViewId ? `/${subViewId}` : ''));
         document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
         document.querySelectorAll('#main-nav a').forEach(link => link.classList.remove('active'));
+        
         const viewToShow = document.getElementById(`view-${viewId}`);
         if(viewToShow) viewToShow.classList.add('active');
+        
         const activeLink = document.querySelector(`[data-view="${viewId}"]`);
         if (activeLink) {
             activeLink.classList.add('active');
@@ -44,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('view-title').textContent = _t(viewTitleKey);
             document.getElementById('view-title').dataset.translateKey = viewTitleKey;
         }
+        
         const parentView = document.getElementById(`view-${viewId}`);
         if (parentView) {
             parentView.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active'));
@@ -159,6 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.initializeAppUI = () => {
         setupRoleBasedNav();
         attachEventListeners();
+        // This function matches sub-tab clicks (e.g. Receive/Issue/Transfer)
         attachSubNavListeners(); 
         const firstVisibleView = document.querySelector('#main-nav .nav-item:not([style*="display: none"]) a')?.dataset.view || 'dashboard';
         showView(firstVisibleView);
@@ -174,25 +178,62 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachEventListeners() {
         btnLogout.addEventListener('click', () => location.reload());
         globalRefreshBtn.addEventListener('click', reloadDataAndRefreshUI);
+        
+        // --- FIX: Correctly Attach Sidebar Navigation ---
+        document.querySelectorAll('#main-nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                showView(link.dataset.view);
+            });
+        });
+
         mainContent.addEventListener('click', handleMainContentClicks);
         document.body.addEventListener('click', handleGlobalClicks);
         document.getElementById('btn-confirm-modal-selection').addEventListener('click', confirmModalSelection);
-        // ... include other logic from original script PART 4
+    }
+
+    // --- NEW FUNCTION: Attach Sub-Navigation (Tabs) Listeners ---
+    function attachSubNavListeners() { 
+        document.querySelectorAll('.sub-nav').forEach(nav => { 
+            if(nav.closest('#history-modal')) return; // History modal has its own logic
+            nav.addEventListener('click', e => { 
+                if (!e.target.classList.contains('sub-nav-item')) return; 
+                
+                const subviewId = e.target.dataset.subview; 
+                const parentView = e.target.closest('.view'); 
+                if (!parentView) return; 
+                
+                // Toggle active classes
+                parentView.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active')); 
+                e.target.classList.add('active'); 
+                
+                parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
+                const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
+                if (subViewToShow) subViewToShow.classList.add('active'); 
+                
+                refreshViewData(parentView.id.replace('view-','')); 
+            }); 
+        }); 
     }
 
     function handleMainContentClicks(e) {
         const btn = e.target.closest('button');
         if (!btn) return;
+        
         if (btn.dataset.context) { openItemSelectorModal(e); }
-        // ... (remaining handlers from original handleEventListeners)
+        if (btn.dataset.selectionType) { openSelectionModal(btn.dataset.selectionType); }
+        if (btn.id === 'btn-select-invoices') { openInvoiceSelectorModal(); } 
+        if (btn.classList.contains('btn-edit')) { openEditModal(btn.dataset.type, btn.dataset.id); }
+        if (btn.classList.contains('btn-history')) { openHistoryModal(btn.dataset.id); }
+        if (btn.id === 'btn-add-new-user') { openEditModal('user', null); }
+        // Add more specific button handlers here if needed
     }
 
     function handleGlobalClicks(e) {
         if (e.target.classList.contains('close-button') || e.target.classList.contains('modal-cancel')) { closeModal(); } 
-        // ... (remaining handlers from original handleGlobalClicks)
     }
 
-    // Modal/Rendering Logic (Placeholders replaced with original logic)
+    // Modal/Rendering Logic
     function openItemSelectorModal(event) {
         const context = event.target.dataset.context;
         modalContext = context;
