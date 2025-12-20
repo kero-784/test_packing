@@ -1,40 +1,35 @@
 import { state, modalContext } from './state.js';
 import { showView, closeModal, showToast, setButtonLoading, openItemSelectorModal, openEditModal, openHistoryModal } from './ui.js';
 import { postData } from './api.js';
-import { _t } from './i18n.js';
+import { applyTranslations } from './i18n.js';
 import * as Render from './render.js';
 
-export function attachEventListeners(reloadDataAndRefreshUI) {
-    // Navigation
+export function attachEventListeners(reloadDataAndRefreshUI, refreshViewData) {
+    // 1. Navigation
     document.querySelectorAll('#main-nav a:not(#btn-logout)').forEach(link => {
         link.addEventListener('click', e => {
             e.preventDefault();
-            showView(link.dataset.view, null, reloadDataAndRefreshUI);
+            showView(link.dataset.view, null, refreshViewData);
         });
     });
 
-    // Sidebar: Language & Refresh
-    document.getElementById('lang-switcher').addEventListener('change', e => {
-        state.currentLanguage = e.target.value;
-        localStorage.setItem('userLanguage', state.currentLanguage);
-        location.reload(); 
+    // 2. Sub-tabs
+    document.addEventListener('click', e => {
+        const subTab = e.target.closest('.sub-nav-item');
+        if (subTab) {
+            const viewId = subTab.closest('.view').id.replace('view-', '');
+            showView(viewId, subTab.dataset.subview, refreshViewData);
+        }
     });
 
-    // Opening Modals
+    // 3. Modals & Item Selection
     document.querySelectorAll('[data-context]').forEach(btn => {
-        btn.addEventListener('click', (e) => openItemSelectorModal(e.currentTarget.dataset.context));
+        btn.addEventListener('click', e => openItemSelectorModal(e.currentTarget.dataset.context));
     });
 
-    // Item Selection Modal Confirmation
-    document.getElementById('btn-confirm-modal-selection').addEventListener('click', () => {
-        const context = modalContext.value;
-        const listMap = {
-            'receive': 'currentReceiveList',
-            'issue': 'currentIssueList',
-            'transfer': 'currentTransferList',
-            'adjustment': 'currentAdjustmentList'
-        };
-        const listName = listMap[context];
+    document.getElementById('btn-confirm-modal-selection')?.addEventListener('click', () => {
+        const ctx = modalContext.value;
+        const listName = { 'receive':'currentReceiveList', 'issue':'currentIssueList', 'transfer':'currentTransferList', 'adjustment':'currentAdjustmentList' }[ctx];
         
         state.modalSelections.forEach(code => {
             if (!state[listName].find(i => i.itemCode === code)) {
@@ -43,55 +38,28 @@ export function attachEventListeners(reloadDataAndRefreshUI) {
             }
         });
         
-        // Refresh the specific table
-        if(context === 'receive') Render.renderReceiveListTable();
-        if(context === 'issue') Render.renderIssueListTable();
-        if(context === 'transfer') Render.renderTransferListTable();
-        if(context === 'adjustment') Render.renderAdjustmentListTable();
-        
+        const renderMap = { 'receive': Render.renderReceiveListTable, 'issue': Render.renderIssueListTable, 'transfer': Render.renderTransferListTable, 'adjustment': Render.renderAdjustmentListTable };
+        if (renderMap[ctx]) renderMap[ctx]();
         closeModal();
     });
 
-    // Table Row Input Changes & Removal (Delegation)
+    // 4. Input Handling (Live Update)
     document.addEventListener('input', e => {
         if (e.target.classList.contains('table-input')) {
-            const idx = e.target.dataset.index;
-            const field = e.target.dataset.field;
-            const tableId = e.target.closest('table').id;
-
-            let list;
-            if (tableId === 'table-receive-list') list = state.currentReceiveList;
-            else if (tableId === 'table-issue-list') list = state.currentIssueList;
-            else if (tableId === 'table-transfer-list') list = state.currentTransferList;
-            else if (tableId === 'table-adjustment-list') list = state.currentAdjustmentList;
-
-            if (list && list[idx]) {
-                list[idx][field] = parseFloat(e.target.value) || 0;
-                // Update totals if applicable
+            const el = e.target;
+            const tableId = el.closest('table').id;
+            const list = { 'table-receive-list':'currentReceiveList', 'table-issue-list':'currentIssueList', 'table-transfer-list':'currentTransferList', 'table-adjustment-list':'currentAdjustmentList' }[tableId];
+            
+            if (list && state[list][el.dataset.index]) {
+                state[list][el.dataset.index][el.dataset.field] = parseFloat(el.value) || 0;
                 if (tableId === 'table-receive-list') Render.updateReceiveGrandTotal();
-                if (tableId === 'table-issue-list') Render.updateIssueGrandTotal();
-                if (tableId === 'table-transfer-list') Render.updateTransferGrandTotal();
             }
         }
+        if (e.target.id === 'item-inquiry-search') Render.renderItemInquiry(e.target.value.toLowerCase());
     });
 
-    document.addEventListener('click', e => {
-        if (e.target.classList.contains('btn-remove-row')) {
-            const idx = e.target.dataset.index;
-            const tableId = e.target.closest('table').id;
-            if (tableId === 'table-receive-list') { state.currentReceiveList.splice(idx, 1); Render.renderReceiveListTable(); }
-            if (tableId === 'table-issue-list') { state.currentIssueList.splice(idx, 1); Render.renderIssueListTable(); }
-            if (tableId === 'table-transfer-list') { state.currentTransferList.splice(idx, 1); Render.renderTransferListTable(); }
-            if (tableId === 'table-adjustment-list') { state.currentAdjustmentList.splice(idx, 1); Render.renderAdjustmentListTable(); }
-        }
-        
-        // History & Edit Buttons
-        if (e.target.classList.contains('btn-history')) openHistoryModal(e.target.dataset.id);
-        if (e.target.classList.contains('btn-edit')) openEditModal(e.target.dataset.type, e.target.dataset.id);
-    });
-
-    // Transaction Submissions
-    document.getElementById('btn-submit-receive-batch').addEventListener('click', async (e) => {
+    // 5. Submit Logic
+    document.getElementById('btn-submit-receive-batch')?.addEventListener('click', async (e) => {
         const payload = {
             type: 'receive',
             batchId: `GRN-${Date.now()}`,
@@ -102,16 +70,24 @@ export function attachEventListeners(reloadDataAndRefreshUI) {
             items: state.currentReceiveList
         };
         const res = await postData('addTransactionBatch', payload, e.currentTarget, showToast, setButtonLoading);
-        if (res) {
-            state.currentReceiveList = [];
-            Render.renderReceiveListTable();
-            reloadDataAndRefreshUI();
-        }
+        if (res) { state.currentReceiveList = []; Render.renderReceiveListTable(); reloadDataAndRefreshUI(); }
     });
 
-    // Search Listeners
-    document.getElementById('item-inquiry-search').addEventListener('input', e => Render.renderItemInquiry(e.target.value.toLowerCase()));
-    
-    // Generic Modal Close
-    document.querySelectorAll('.close-button, .modal-cancel').forEach(b => b.addEventListener('click', closeModal));
+    // 6. Common Actions
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        
+        if (btn.classList.contains('btn-remove-row')) {
+            const tableId = btn.closest('table').id;
+            const list = { 'table-receive-list':'currentReceiveList', 'table-issue-list':'currentIssueList', 'table-transfer-list':'currentTransferList', 'table-adjustment-list':'currentAdjustmentList' }[tableId];
+            state[list].splice(btn.dataset.index, 1);
+            Render[{ 'currentReceiveList':'renderReceiveListTable', 'currentIssueList':'renderIssueListTable', 'currentTransferList':'renderTransferListTable', 'currentAdjustmentList':'renderAdjustmentListTable' }[list]]();
+        }
+
+        if (btn.classList.contains('btn-edit')) openEditModal(btn.dataset.type, btn.dataset.id);
+        if (btn.classList.contains('btn-history')) openHistoryModal(btn.dataset.id);
+        if (btn.id === 'global-refresh-button') reloadDataAndRefreshUI();
+        if (btn.classList.contains('close-button') || btn.classList.contains('modal-cancel')) closeModal();
+    });
 }
