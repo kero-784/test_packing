@@ -1,4 +1,3 @@
-// --- HELPER FUNCTIONS ---
 function getVisibleBranchesForCurrentUser() {
     if (!state.currentUser) return [];
     if (userCan('viewAllBranches')) { return state.branches; }
@@ -79,10 +78,8 @@ function renderSectionsTable(data = state.sections) {
 
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
-    if (!table) return;
+    if (!table) return; 
     const tbody = table.querySelector('tbody');
-    if (!tbody) return;
-    
     tbody.innerHTML = '';
     if (!list || list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${columnsConfig.length + 1}" style="text-align:center;">${_t(emptyMessage)}</td></tr>`;
@@ -196,6 +193,8 @@ function renderItemInquiry(searchTerm) {
     });
     resultsContainer.innerHTML = html;
 }
+
+// --- MISSING FUNCTIONS (Now Included) ---
 
 function renderPaymentList() {
     const supplierEl = document.getElementById('payment-supplier-select');
@@ -464,7 +463,7 @@ function renderUnifiedConsumptionReport() {
         const section = findByKey(state.sections, 'sectionCode', t.sectionCode);
         const item = findByKey(state.items, 'code', t.itemCode);
         if (!branch || !section || !item) return;
-        const value = (parseFloat(t.quantity) || 0) * (parseFloat(item.cost) || 0); 
+        const value = (parseFloat(t.quantity) || 0) * (parseFloat(item.cost) || 0); // Using current cost for simplicity
         grandTotalValue += value;
         if (!reportData[branch.branchName]) reportData[branch.branchName] = { totalValue: 0, sections: {} };
         if (!reportData[branch.branchName].sections[section.sectionName]) reportData[branch.branchName].sections[section.sectionName] = { totalValue: 0, items: {} };
