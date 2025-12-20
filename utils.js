@@ -9,14 +9,18 @@ window.printReport = function(elementId) {
     }
 };
 
-const findByKey = (array, key, value) => (array || []).find(el => el && String(el[key]) === String(value));
+function findByKey(array, key, value) {
+    return (array || []).find(el => el && String(el[key]) === String(value));
+}
 
-const generateId = (prefix) => `${prefix}-${Date.now()}`;
+function generateId(prefix) {
+    return `${prefix}-${Date.now()}`;
+}
 
-const printContent = (content) => { 
+function printContent(content) { 
     document.getElementById('print-area').innerHTML = content; 
     setTimeout(() => window.print(), 200); 
-};
+}
 
 function showToast(message, type = 'success') {
     if (type === 'error') Logger.error(`User Toast: ${message}`);
@@ -43,7 +47,7 @@ function setButtonLoading(isLoading, buttonEl) {
     }
 }
 
-const exportToExcel = (tableId, filename) => { 
+function exportToExcel(tableId, filename) { 
     try { 
         const table = document.getElementById(tableId); 
         if (!table) { showToast('Please generate a report first.', 'error'); return; } 
@@ -54,12 +58,12 @@ const exportToExcel = (tableId, filename) => {
         showToast('Excel export failed.', 'error'); 
         Logger.error('Export Error:', err); 
     } 
-};
+}
 
-const populateOptions = (el, data, ph, valueKey, textKey, textKey2) => { 
+function populateOptions(el, data, ph, valueKey, textKey, textKey2) { 
     if (!el) { console.warn(`populateOptions failed: element is null for placeholder "${ph}"`); return; }
     el.innerHTML = `<option value="">${ph}</option>`; 
     (data || []).forEach(item => { 
         el.innerHTML += `<option value="${item[valueKey]}">${item[textKey]}${textKey2 && item[textKey2] ? ' (' + item[textKey2] + ')' : ''}</option>`;
     }); 
-};
+}
