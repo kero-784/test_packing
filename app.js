@@ -1,7 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM ELEMENT REFERENCES (Global to this closure) ---
-    const loginContainer = document.getElementById('login-container');
-    const appContainer = document.getElementById('app-container');
+// --- DOM ELEMENT REFERENCES ---
     const loginUsernameInput = document.getElementById('login-username');
     const loginCodeInput = document.getElementById('login-code');
     const loginForm = document.getElementById('login-form');
@@ -52,7 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Show Login, Hide App
+        const loginContainer = document.getElementById('login-container');
+        const appContainer = document.getElementById('app-container');
         if(loginContainer) loginContainer.style.display = 'flex';
         if(appContainer) appContainer.style.display = 'none';
         
