@@ -1,4 +1,4 @@
-/* --- MODERN UI REDESIGN V3 (Mobile & Table Fixes) --- */
+/* --- MODERN UI REDESIGN V3 (Mobile & PWA Optimized) --- */
 
 :root {
     --primary-color: #4A90E2;
@@ -35,6 +35,7 @@ body {
     color: var(--text-color);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* PWA Safe Areas */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
@@ -62,7 +63,7 @@ html[dir="rtl"] body {
 
 /* --- Mobile Header & Hamburger --- */
 .mobile-header {
-    display: none;
+    display: none; /* Hidden on Desktop */
     position: fixed; top: 0; left: 0; width: 100%; height: 60px;
     background-color: var(--sidebar-bg); border-bottom: 1px solid var(--border-color);
     z-index: 900; align-items: center; padding: 0 16px; box-shadow: var(--shadow-sm);
@@ -104,7 +105,7 @@ html[dir="rtl"] body {
     padding: 32px; 
     height: 100%; 
     overflow-y: auto; 
-    overflow-x: hidden;
+    overflow-x: hidden; /* Prevent horizontal scroll on body */
 }
 .main-header { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 24px; gap: 16px;}
 #view-title { font-size: 32px; font-weight: 700; margin: 0; flex-shrink: 0; }
@@ -112,7 +113,7 @@ html[dir="rtl"] body {
 .pending-requests-widget .icon { width: 20px; height: 20px; }
 .user-branch-display { margin-left: auto; background-color: var(--primary-light); color: var(--primary-dark); font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 8px; flex-shrink: 0; }
 
-/* --- Sub-Navigation for Tabs (Scrollable on Mobile) --- */
+/* --- Sub-Navigation for Tabs --- */
 .sub-nav { 
     display: flex; gap: 8px; border-bottom: 2px solid var(--border-color); 
     margin-bottom: 24px; flex-wrap: nowrap; overflow-x: auto; 
@@ -141,7 +142,8 @@ html[dir="rtl"] body {
     margin-bottom: 24px; 
     box-shadow: var(--shadow-md); 
     max-width: 100%;
-    overflow: hidden; 
+    overflow: hidden; /* Contains overflowing children */
+    box-sizing: border-box;
 }
 .card h2 { font-size: 20px; font-weight: 600; margin: 0 0 24px 0; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
@@ -163,55 +165,80 @@ html[dir="rtl"] body {
     height: 150px;
     padding: 8px;
 }
-.report-selection-control {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-.report-selection-control button {
-    flex-shrink: 0;
-}
-.report-selection-control span {
-    font-size: 14px;
-    color: var(--text-light-color);
-    font-style: italic;
-    flex-shrink: 0;
-}
+.report-selection-control { display: flex; align-items: center; gap: 12px; }
+.report-selection-control button { flex-shrink: 0; }
+.report-selection-control span { font-size: 14px; color: var(--text-light-color); font-style: italic; flex-shrink: 0; }
 
 /* --- Table & Scroll Fixes (CRITICAL) --- */
-.card table, .report-area table {
-    display: block; /* Allows scrolling */
+
+/* 1. Scrollable Container for Tables */
+.report-area, 
+/* Target tables directly inside cards to ensure they scroll */
+.card table, 
+#receive-list-card table,
+#issue-list-card table,
+#transfer-list-card table,
+#return-list-card table {
+    display: block;
     width: 100%;
-    overflow-x: auto;
+    overflow-x: auto !important; /* Force scrollbar */
     -webkit-overflow-scrolling: touch;
-    white-space: nowrap;
+    margin-top: 15px;
+    border: 1px solid var(--border-color); /* Add border to container */
+    border-radius: var(--border-radius);
+    background: #fff;
+    white-space: nowrap; /* Prevent wrapping initially */
+    padding-bottom: 5px; /* Space for scrollbar */
 }
 
-/* Ensure table takes full width visually inside scroll area */
+/* 2. Remove double borders if wrapped */
+.report-area table {
+    margin-top: 0;
+    border: none;
+}
+
+/* 3. Force Table Width */
 table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 600px; /* Force scrolling on small screens */
+    min-width: 700px !important; /* Force min width to trigger scroll on mobile */
+    table-layout: fixed; /* Better performance */
 }
 
-/* Style Cells */
+/* 4. Cells */
 th, td {
-    padding: 12px 16px;
+    padding: 12px 10px;
     text-align: left;
     vertical-align: middle;
     border-bottom: 1px solid var(--border-color);
+    white-space: normal; /* Allow text wrapping inside fixed columns */
+    word-wrap: break-word;
 }
-th { font-size: 13px; font-weight: 600; color: var(--text-light-color); background-color: var(--bg-color); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* 5. Column Widths (Prevent Squishing) */
+th:nth-child(1), td:nth-child(1) { width: 90px; } /* Code */
+th:nth-child(2), td:nth-child(2) { width: 160px; } /* Name */
+th:nth-child(3), td:nth-child(3) { width: 100px; } /* Qty/Unit */
+
+th { 
+    font-size: 13px; 
+    font-weight: 600; 
+    color: var(--text-light-color); 
+    background-color: #F8F9FA; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+    white-space: nowrap; /* Keep headers single line */
+}
 td { font-size: 14px; }
 td button.btn-edit { width: 100%; text-align: center; justify-content: center;}
 tbody tr { transition: background-color 0.15s ease-in-out; }
 tbody tr:hover { background-color: #f7faff; }
 
-/* Fix Inputs inside tables */
+/* 6. Inputs inside Tables */
 table input.table-input {
     width: 100%;
     min-width: 80px; 
-    max-width: 120px; 
+    max-width: 100%; 
     padding: 8px;
     font-size: 14px;
     box-sizing: border-box;
@@ -220,13 +247,11 @@ table input.table-input {
     border-radius: 4px;
 }
 
-/* Scrollbar Styling */
-.card table::-webkit-scrollbar, .report-area::-webkit-scrollbar, 
-.sub-nav::-webkit-scrollbar {
-    height: 8px;
+/* 7. Scrollbar Styling */
+.card table::-webkit-scrollbar, .report-area::-webkit-scrollbar {
+    height: 6px;
 }
-.card table::-webkit-scrollbar-thumb, .report-area::-webkit-scrollbar-thumb,
-.sub-nav::-webkit-scrollbar-thumb {
+.card table::-webkit-scrollbar-thumb, .report-area::-webkit-scrollbar-thumb {
     background-color: #ccc;
     border-radius: 4px;
 }
@@ -261,16 +286,6 @@ button:disabled { background-color: #D1D5DB; border-color: #D1D5DB; color: #6B72
 .view.active { display: block; animation: fadeIn 0.4s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
-/* --- Toasts & Loaders --- */
-#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1001; display: flex; flex-direction: column; gap: 10px; }
-.toast { padding: 16px 24px; border-radius: var(--border-radius); color: white; font-weight: 500; box-shadow: var(--shadow-lg); transform: translateX(calc(100% + 20px)); animation: slideIn 0.5s forwards; }
-@keyframes slideIn { to { transform: translateX(0); } }
-.toast.success { background: linear-gradient(45deg, var(--secondary-color), #2dbd9d); }
-.toast.error { background: linear-gradient(45deg, var(--danger-color), #d93a2b); }
-.toast.info { background: linear-gradient(45deg, var(--info-color), #5d6d7e); }
-.spinner { width: 50px; height: 50px; border: 5px solid var(--primary-light); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
 /* --- Modals --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(36, 41, 46, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); animation: fadeIn 0.2s ease; }
 .modal-overlay.active { display: flex; }
@@ -281,12 +296,6 @@ button:disabled { background-color: #D1D5DB; border-color: #D1D5DB; color: #6B72
 .close-button { background: transparent; border: none; font-size: 28px; cursor: pointer; padding: 0; line-height: 1; color: var(--text-light-color); transition: color 0.2s; }
 .close-button:hover { color: var(--text-color); }
 .modal-body { flex-grow: 1; overflow-y: auto; padding: 24px; min-height: 0; }
-#modal-search-items { margin-bottom: 16px; }
-.modal-item-list { display: flex; flex-direction: column; }
-.modal-item { display: flex; align-items: center; padding: 12px; border-radius: var(--border-radius); cursor: pointer; transition: background-color 0.2s; }
-.modal-item:hover { background-color: var(--bg-color); }
-.modal-item input[type="checkbox"] { width: 20px; height: 20px; margin-right: 16px; accent-color: var(--primary-color); }
-.modal-item label { flex-grow: 1; margin: 0; display: block; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 20px 24px; border-top: 1px solid var(--border-color); background-color: #F7F8FC; flex-shrink: 0; }
 
 .permission-category { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); color: var(--primary-dark); }
@@ -309,7 +318,6 @@ input:checked + .slider:before { transform: translateX(26px); }
 
 /* --- Admin Context Modal --- */
 #context-modal-message { margin-bottom: 24px; color: var(--text-light-color); line-height: 1.6; }
-
 
 /*
 ====================================
@@ -351,7 +359,7 @@ html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
     .main-content {
         margin-left: 0;
         margin-right: 0;
-        padding: 80px 16px 32px 16px; /* Top padding clears fixed header */
+        padding: 80px 16px 32px 16px; 
         height: auto;
         min-height: 100vh;
         overflow-y: visible; 
@@ -411,14 +419,28 @@ html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
         padding: 24px;
     }
 
-    /* Report Controls on Mobile */
-    .report-generator-controls {
-        flex-direction: column;
-        align-items: stretch;
+    .sub-nav {
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 5px;
     }
     
     .card {
         padding: 16px;
+        /* Mobile specific overflow fix */
+        max-width: 100vw;
+        box-sizing: border-box;
+    }
+
+    /* Ensure scrollable containers span full width */
+    .report-area, .card table {
+        width: calc(100% + 32px); /* Stretch to screen edges */
+        margin-left: -16px;
+        margin-right: -16px;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
     }
     
     .grid, .form-grid {
