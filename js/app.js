@@ -1,15 +1,18 @@
 import { state } from './state.js';
 import { CONFIG, Logger } from './config.js';
 import { attemptLogin, postData } from './api.js';
-import { showView, showToast, setButtonLoading, closeModal } from './ui.js';
-import { applyTranslations } from './i18n.js'; // Fixed: Correct source for translation logic
+import { showView, showToast, setButtonLoading } from './ui.js';
+import { applyTranslations } from './i18n.js';
 import { attachEventListeners } from './events.js';
 import { findByKey, userCan, populateOptions } from './utils.js';
 import { calculateStockLevels } from './calculations.js';
 import * as Render from './render.js';
 
+/**
+ * Fetches the latest data from Google Sheets and refreshes the current UI view.
+ */
 async function reloadDataAndRefreshUI() {
-    Logger.info('Reloading all data from server...');
+    Logger.info('Reloading data...');
     const { username, loginCode } = state;
     if (!username || !loginCode) return;
 
@@ -18,11 +21,12 @@ async function reloadDataAndRefreshUI() {
 
     try {
         const response = await fetch(`${CONFIG.SCRIPT_URL}?username=${encodeURIComponent(username)}&loginCode=${encodeURIComponent(loginCode)}`);
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (!response.ok) throw new Error('Failed to connect to server.');
         
         const data = await response.json();
         if (data.status === 'error') throw new Error(data.message);
 
+        // Sync local state with server data
         Object.keys(data).forEach(key => {
             if (key !== 'user') state[key] = data[key] || [];
         });
@@ -30,31 +34,33 @@ async function reloadDataAndRefreshUI() {
         updateUserBranchDisplay();
         Render.updatePendingRequestsWidget();
 
-        const currentViewId = document.querySelector('.nav-item a.active')?.dataset.view || 'dashboard';
-        await refreshViewData(currentViewId);
+        const currentView = document.querySelector('.nav-item a.active')?.dataset.view || 'dashboard';
+        await refreshViewData(currentView);
 
-        showToast('Data refreshed successfully', 'success');
+        showToast('Data refreshed!', 'success');
     } catch (err) {
-        Logger.error('Data reload failed:', err);
-        showToast('Refresh failed. Please check connection.', 'error');
+        Logger.error('Reload failed:', err);
+        showToast('Could not refresh data.', 'error');
     } finally {
         setButtonLoading(false, globalRefreshBtn);
     }
 }
 
+/**
+ * Orchestrates rendering for specific views.
+ */
 async function refreshViewData(viewId) {
     if (!state.currentUser) return;
-    Logger.info(`Refreshing data for view: ${viewId}`);
-
-    switch (viewId) {
+    
+    switch(viewId) {
         case 'dashboard':
             const stock = calculateStockLevels();
-            document.getElementById('dashboard-total-items').textContent = (state.items || []).length.toLocaleString();
-            document.getElementById('dashboard-total-suppliers').textContent = (state.suppliers || []).length;
-            document.getElementById('dashboard-total-branches').textContent = (state.branches || []).length;
-            let totalVal = 0;
-            Object.values(stock).forEach(bs => Object.values(bs).forEach(i => totalVal += i.quantity * (i.avgCost || 0)));
-            document.getElementById('dashboard-total-value').textContent = `${totalVal.toFixed(2)} EGP`;
+            document.getElementById('dashboard-total-items').textContent = state.items.length.toLocaleString();
+            document.getElementById('dashboard-total-suppliers').textContent = state.suppliers.length;
+            document.getElementById('dashboard-total-branches').textContent = state.branches.length;
+            let totalValue = 0;
+            Object.values(stock).forEach(bs => Object.values(bs).forEach(i => totalValue += i.quantity * i.avgCost));
+            document.getElementById('dashboard-total-value').textContent = `${totalValue.toFixed(2)} EGP`;
             break;
 
         case 'master-data':
@@ -62,11 +68,6 @@ async function refreshViewData(viewId) {
             Render.renderSuppliersTable();
             Render.renderBranchesTable();
             Render.renderSectionsTable();
-            break;
-
-        case 'stock-levels':
-            Render.renderItemCentricStockView();
-            Render.renderItemInquiry('');
             break;
 
         case 'operations':
@@ -82,6 +83,11 @@ async function refreshViewData(viewId) {
             Render.renderAdjustmentListTable();
             break;
 
+        case 'stock-levels':
+            Render.renderItemCentricStockView();
+            Render.renderItemInquiry('');
+            break;
+
         case 'transaction-history':
             Render.renderTransactionHistory({
                 startDate: document.getElementById('tx-filter-start-date').value,
@@ -93,10 +99,10 @@ async function refreshViewData(viewId) {
             break;
 
         case 'user-management':
-            const userRes = await postData('getAllUsersAndRoles', {}, null, showToast, setButtonLoading);
-            if (userRes) {
-                state.allUsers = userRes.data.users;
-                state.allRoles = userRes.data.roles;
+            const res = await postData('getAllUsersAndRoles', {}, null, showToast, setButtonLoading);
+            if (res) {
+                state.allUsers = res.data.users;
+                state.allRoles = res.data.roles;
                 Render.renderUserManagementUI();
             }
             break;
@@ -105,50 +111,43 @@ async function refreshViewData(viewId) {
             Render.renderActivityLog();
             break;
     }
+    applyTranslations();
 }
 
 function updateUserBranchDisplay() {
-    const displayEl = document.getElementById('user-branch-display');
-    if (!state.currentUser || !displayEl) return;
+    const el = document.getElementById('user-branch-display');
+    if (!state.currentUser || !el) return;
     const branch = findByKey(state.branches, 'branchCode', state.currentUser.AssignedBranchCode);
     const section = findByKey(state.sections, 'sectionCode', state.currentUser.AssignedSectionCode);
-    let text = '';
-    if (branch) text += `Branch: ${branch.branchName}`;
-    if (section) text += `${text ? ' / ' : ''}Section: ${section.sectionName}`;
-    displayEl.textContent = text;
+    let text = branch ? `Branch: ${branch.branchName}` : '';
+    if (section) text += (text ? ' / ' : '') + `Section: ${section.sectionName}`;
+    el.textContent = text;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const savedLang = localStorage.getItem('userLanguage') || 'en';
     state.currentLanguage = savedLang;
-    document.getElementById('lang-switcher').value = savedLang;
     applyTranslations();
 
     const loginForm = document.getElementById('login-form');
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('login-username').value.trim();
+        const user = document.getElementById('login-username').value.trim();
         const code = document.getElementById('login-code').value;
 
-        const loginUI = {
+        const ui = {
             form: loginForm,
             errorEl: document.getElementById('login-error'),
             loader: document.getElementById('login-loader')
         };
 
-        const result = await attemptLogin(username, code, loginUI);
-        
+        const result = await attemptLogin(user, code, ui);
         if (result.success) {
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
-            
-            const userFirstName = state.currentUser.Name.split(' ')[0];
-            document.querySelector('.sidebar-header h1').textContent = `Hi, ${userFirstName}`;
-
             attachEventListeners(reloadDataAndRefreshUI);
-            showView('dashboard', null, (v) => refreshViewData(v));
+            showView('dashboard', null, refreshViewData);
             updateUserBranchDisplay();
-            Render.updatePendingRequestsWidget();
         }
     });
 });
