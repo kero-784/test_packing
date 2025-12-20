@@ -1,4 +1,4 @@
-const calculateStockLevels = () => {
+function calculateStockLevels() {
     const stock = {};
     (state.branches || []).forEach(branch => { stock[branch.branchCode] = {}; });
     const sortedTransactions = [...(state.transactions || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -41,9 +41,9 @@ const calculateStockLevels = () => {
         }
     });
     return stock;
-};
+}
 
-const calculateSupplierFinancials = () => {
+function calculateSupplierFinancials() {
     const financials = {};
     (state.suppliers || []).forEach(s => { financials[s.supplierCode] = { supplierCode: s.supplierCode, supplierName: s.name, totalBilled: 0, totalPaid: 0, totalCredited: 0, balance: 0, invoices: {}, events: [] }; });
     (state.transactions || []).forEach(t => {
@@ -86,9 +86,9 @@ const calculateSupplierFinancials = () => {
         s.events = allEvents.sort((a,b) => new Date(a.date) - new Date(b.date));
     });
     financials.allInvoices = {}; Object.values(financials).forEach(s => { Object.assign(financials.allInvoices, s.invoices); }); return financials;
-};
+}
 
-const calculateHistoricalCosts = () => {
+function calculateHistoricalCosts() {
     const costSnapshots = {}; 
     const stock = {}; 
     
@@ -149,4 +149,4 @@ const calculateHistoricalCosts = () => {
     });
 
     return costSnapshots;
-};
+}
