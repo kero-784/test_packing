@@ -10,6 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContent = document.querySelector('.main-content');
     const installBtn = document.getElementById('btn-install-pwa');
 
+    // Mobile UI Elements
+    const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+
     // Modals
     const itemSelectorModal = document.getElementById('item-selector-modal');
     const invoiceSelectorModal = document.getElementById('invoice-selector-modal');
@@ -61,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
+
         window.addEventListener('appinstalled', () => {
             if(installBtn) installBtn.style.display = 'none';
             Logger.info('PWA was installed');
@@ -292,6 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const titleEl = document.getElementById('stock-levels-title');
                     if(titleEl) titleEl.textContent = userCan('viewAllBranches') ? _t('stock_by_item_all_branches') : _t('stock_by_item_your_branch');
                     renderItemCentricStockView();
+                    const itemInq = document.getElementById('item-inquiry-search');
+                    if(itemInq) itemInq.value = '';
+                    const stockSearch = document.getElementById('stock-levels-search');
+                    if(stockSearch) stockSearch.value = '';
                     break;
                     
                 case 'transaction-history': 
@@ -373,8 +383,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 const viewId = link.dataset.view;
                 showView(viewId);
+                
+                // Mobile Menu Logic: Close on selection
+                if (window.innerWidth <= 768 && sidebar && overlay) {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('active');
+                }
             });
         });
+
+        // --- MOBILE MENU LOGIC ---
+        if (mobileMenuBtn && sidebar && overlay) {
+            mobileMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('active');
+            });
+
+            overlay.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+            });
+        }
 
         document.body.addEventListener('click', handleGlobalClicks);
         if(mainContent) mainContent.addEventListener('click', handleMainContentClicks);
@@ -543,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }); 
     }
 
-    // --- FORM HANDLERS ---
+    // --- FORM HANDLERS (Simplified for brevity, ensuring null checks) ---
     function attachFormListeners() {
         const addItemForm = document.getElementById('form-add-item');
         if (addItemForm) {
