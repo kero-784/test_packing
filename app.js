@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM ELEMENT REFERENCES ---
+    // --- DOM ELEMENT REFERENCES (Global to this closure) ---
+    const loginContainer = document.getElementById('login-container');
+    const appContainer = document.getElementById('app-container');
     const loginUsernameInput = document.getElementById('login-username');
     const loginCodeInput = document.getElementById('login-code');
     const loginForm = document.getElementById('login-form');
@@ -50,17 +52,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        loginContainer.style.display = 'flex';
-        appContainer.style.display = 'none';
+        // Show Login, Hide App
+        if(loginContainer) loginContainer.style.display = 'flex';
+        if(appContainer) appContainer.style.display = 'none';
         
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const username = loginUsernameInput.value.trim();
-            const code = loginCodeInput.value;
-            if (username && code) {
-                attemptLogin(username, code);
-            }
-        });
+        if(loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = loginUsernameInput.value.trim();
+                const code = loginCodeInput.value;
+                if (username && code) {
+                    attemptLogin(username, code);
+                }
+            });
+        }
     }
 
     // --- MAIN UI SETUP (Called after successful login) ---
@@ -871,9 +876,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if(el) el.style.display = config[k] ? 'block' : 'none';
         });
         
-        // Populate options (simplified)
         if(config.branch) populateOptions(document.getElementById('context-branch-select'), state.branches, 'Select Branch', 'branchCode', 'branchName');
-        // ... (repeat for other selects as needed)
+        if(config.fromBranch) populateOptions(document.getElementById('context-from-branch-select'), state.branches, 'Select From Branch', 'branchCode', 'branchName');
+        if(config.toBranch) populateOptions(document.getElementById('context-to-branch-select'), state.branches, 'Select To Branch', 'branchCode', 'branchName');
+        if(config.fromSection) populateOptions(document.getElementById('context-from-section-select'), state.sections, 'Select From Section', 'sectionCode', 'sectionName');
+        if(config.toSection) populateOptions(document.getElementById('context-to-section-select'), state.sections, 'Select To Section', 'sectionCode', 'sectionName');
 
         contextModal.classList.add('active');
         return new Promise((resolve) => { state.adminContextPromise = { resolve }; });
