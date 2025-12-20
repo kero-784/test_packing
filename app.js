@@ -216,16 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                     
                 case 'setup':
-                    const formItem = document.getElementById('form-add-item');
-                    if(formItem) formItem.parentElement.style.display = userCan('createItem') ? 'block' : 'none';
-                    const formSupplier = document.getElementById('form-add-supplier');
-                    if(formSupplier) formSupplier.parentElement.style.display = userCan('createSupplier') ? 'block' : 'none';
-                    const formBranch = document.getElementById('form-add-branch');
-                    if(formBranch) formBranch.parentElement.style.display = userCan('createBranch') ? 'block' : 'none';
-                    const formSection = document.getElementById('form-add-section');
-                    if(formSection) formSection.parentElement.style.display = userCan('createSection') ? 'block' : 'none';
-
-                    populateOptions(document.getElementById('item-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
+                    // This case is deprecated/merged into Master Data but kept for safety
                     break;
                     
                 case 'backup':
@@ -234,6 +225,19 @@ document.addEventListener('DOMContentLoaded', () => {
                      break;
                      
                 case 'master-data':
+                    // Permission checks for ADD buttons in master data tabs
+                    const btnAddItem = document.querySelector('button[data-type="item"]');
+                    if(btnAddItem) btnAddItem.style.display = (userCan('createItem') || userCan('editItem')) ? 'inline-flex' : 'none';
+                    
+                    const btnAddSupplier = document.querySelector('button[data-type="supplier"]');
+                    if(btnAddSupplier) btnAddSupplier.style.display = (userCan('createSupplier') || userCan('editSupplier')) ? 'inline-flex' : 'none';
+                    
+                    const btnAddBranch = document.querySelector('button[data-type="branch"]');
+                    if(btnAddBranch) btnAddBranch.style.display = (userCan('createBranch') || userCan('editBranch')) ? 'inline-flex' : 'none';
+
+                    const btnAddSection = document.querySelector('button[data-type="section"]');
+                    if(btnAddSection) btnAddSection.style.display = (userCan('createSection') || userCan('editSection')) ? 'inline-flex' : 'none';
+
                     renderItemsTable(); 
                     renderSuppliersTable(); 
                     renderBranchesTable(); 
@@ -640,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const submitRequest = document.getElementById('btn-submit-request');
         if(submitRequest) {
-            submitRequest.addEventListener('click', async(e) => { const btn = e.currentTarget; let fromSection = state.currentUser.AssignedSectionCode, toBranch = state.currentUser.AssignedBranchCode; const requestType = document.getElementById('request-type').value; const notes = document.getElementById('request-notes').value; if(userCan('viewAllBranches') && (!fromSection || !toBranch)) { const context = await requestAdminContext({ toBranch: true, fromSection: true }); if(!context) return; fromSection = context.fromSection; toBranch = context.toBranch; } if(state.currentRequestList.length === 0){ showToast('Please select items for your request.', 'error'); return; } if(!fromSection || !toBranch){ showToast('Your user is not assigned a branch/section to make requests. Please contact an admin.', 'error'); return; } const payload = { requestId: `REQ-${Date.now()}`, requestType, notes, items: state.currentRequestList, FromSection: fromSection, ToBranch: toBranch }; const result = await postData('addItemRequest', payload, btn); if(result){ showToast('Request submitted successfully!', 'success'); state.currentRequestList = []; document.getElementById('form-create-request').reset(); renderRequestListTable(); reloadDataAndRefreshUI(); }});
+            submitRequest.addEventListener('click', async(e) => { const btn = e.currentTarget; let fromSection = state.currentUser.AssignedSectionCode, toBranch = state.currentUser.AssignedBranchCode; const requestType = document.getElementById('request-type').value; const notes = document.getElementById('request-notes').value; if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ toBranch: true, fromSection: true }); if(!context) return; fromSection = context.fromSection; toBranch = context.toBranch; } if(state.currentRequestList.length === 0){ showToast('Please select items for your request.', 'error'); return; } if(!fromSection || !toBranch){ showToast('Your user is not assigned a branch/section to make requests. Please contact an admin.', 'error'); return; } const payload = { requestId: `REQ-${Date.now()}`, requestType, notes, items: state.currentRequestList, FromSection: fromSection, ToBranch: toBranch }; const result = await postData('addItemRequest', payload, btn); if(result){ showToast('Request submitted successfully!', 'success'); state.currentRequestList = []; document.getElementById('form-create-request').reset(); renderRequestListTable(); reloadDataAndRefreshUI(); }});
         }
         
         const submitAdjustment = document.getElementById('btn-submit-adjustment');
@@ -736,6 +740,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         Logger.debug(`Main content button clicked: ${btn.id || btn.className}`);
         
+        // --- ADD BUTTON LOGIC ---
+        if (btn.classList.contains('btn-add-new')) {
+            openEditModal(btn.dataset.type, null); // Pass null to create new
+        }
+
         if (btn.dataset.context) openItemSelectorModal(e);
         if (btn.dataset.selectionType) openSelectionModal(btn.dataset.selectionType);
         if (btn.id === 'btn-select-invoices') openInvoiceSelectorModal();
@@ -981,16 +990,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if(type === 'item') {
             record = findByKey(state.items, 'code', id);
-            editModalTitle.textContent = _t('edit_item');
-            formHtml = `<div class="form-grid"><div class="form-group"><label>${_t('item_code')}</label><input type="text" value="${record.code}" readonly></div><div class="form-group"><label>${_t('barcode')}</label><input type="text" name="barcode" value="${record.barcode || ''}"></div><div class="form-group"><label>${_t('item_name')}</label><input type="text" name="name" value="${record.name}" required></div><div class="form-group"><label>${_t('unit')}</label><input type="text" name="unit" value="${record.unit}" required></div><div class="form-group"><label>${_t('category')}</label><select name="category" required><option value="Packing">${_t('packing')}</option><option value="Cleaning">${_t('cleaning')}</option></select></div><div class="form-group"><label>${_t('default_supplier')}</label><select name="supplierCode" id="edit-item-supplier"></select></div><div class="form-group span-full"><label>${_t('default_cost')}</label><input type="number" name="cost" step="0.01" min="0" value="${record.cost}" required></div></div>`;
+            // If new item (record is undefined), create empty object to avoid errors
+            if (!record && id === null) record = { code: '', barcode: '', name: '', unit: '', category: '', supplierCode: '', cost: '' };
+            
+            editModalTitle.textContent = id ? _t('edit_item') : _t('add_new_item');
+            formHtml = `<div class="form-grid">
+                            <div class="form-group"><label>${_t('item_code')}</label><input type="text" name="code" value="${record.code}" ${id ? 'readonly' : 'required'}></div>
+                            <div class="form-group"><label>${_t('barcode')}</label><input type="text" name="barcode" value="${record.barcode || ''}"></div>
+                            <div class="form-group"><label>${_t('item_name')}</label><input type="text" name="name" value="${record.name}" required></div>
+                            <div class="form-group"><label>${_t('unit')}</label><input type="text" name="unit" value="${record.unit}" required></div>
+                            <div class="form-group"><label>${_t('category')}</label><select name="category" required><option value="Packing">${_t('packing')}</option><option value="Cleaning">${_t('cleaning')}</option></select></div>
+                            <div class="form-group"><label>${_t('default_supplier')}</label><select name="supplierCode" id="edit-item-supplier"></select></div>
+                            <div class="form-group span-full"><label>${_t('default_cost')}</label><input type="number" name="cost" step="0.01" min="0" value="${record.cost}" required></div>
+                        </div>`;
             editModalBody.innerHTML = formHtml;
             populateOptions(document.getElementById('edit-item-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
-            document.getElementById('edit-item-supplier').value = record.supplierCode;
+            if(record.supplierCode) document.getElementById('edit-item-supplier').value = record.supplierCode;
+            if(record.category) document.querySelector('select[name="category"]').value = record.category;
         }
         else if(type === 'supplier') {
             record = findByKey(state.suppliers, 'supplierCode', id);
-            editModalTitle.textContent = _t('edit_supplier');
-            editModalBody.innerHTML = `<div class="form-grid"><div class="form-group"><label>${_t('supplier_code')}</label><input type="text" value="${record.supplierCode}" readonly></div><div class="form-group"><label>${_t('supplier_name')}</label><input type="text" name="name" value="${record.name}" required></div><div class="form-group"><label>${_t('contact_info')}</label><input type="text" name="contact" value="${record.contact || ''}"></div></div>`;
+            if (!record && id === null) record = { supplierCode: '', name: '', contact: '' };
+            
+            editModalTitle.textContent = id ? _t('edit_supplier') : _t('add_new_supplier');
+            editModalBody.innerHTML = `<div class="form-grid"><div class="form-group"><label>${_t('supplier_code')}</label><input type="text" name="supplierCode" value="${record.supplierCode}" ${id ? 'readonly' : 'required'}></div><div class="form-group"><label>${_t('supplier_name')}</label><input type="text" name="name" value="${record.name}" required></div><div class="form-group"><label>${_t('contact_info')}</label><input type="text" name="contact" value="${record.contact || ''}"></div></div>`;
+        }
+        else if(type === 'branch') {
+            record = findByKey(state.branches, 'branchCode', id);
+            if (!record && id === null) record = { branchCode: '', branchName: '' };
+            
+            editModalTitle.textContent = id ? _t('edit_branch') : _t('add_new_branch');
+            editModalBody.innerHTML = `<div class="form-grid"><div class="form-group"><label>${_t('branch_code')}</label><input type="text" name="branchCode" value="${record.branchCode}" ${id ? 'readonly' : 'required'}></div><div class="form-group"><label>${_t('branch_name')}</label><input type="text" name="branchName" value="${record.branchName}" required></div></div>`;
+        }
+        else if(type === 'section') {
+            record = findByKey(state.sections, 'sectionCode', id);
+            if (!record && id === null) record = { sectionCode: '', sectionName: '' };
+            
+            editModalTitle.textContent = id ? _t('edit_section') : _t('add_new_section');
+            editModalBody.innerHTML = `<div class="form-grid"><div class="form-group"><label>${_t('section_code')}</label><input type="text" name="sectionCode" value="${record.sectionCode}" ${id ? 'readonly' : 'required'}></div><div class="form-group"><label>${_t('section_name')}</label><input type="text" name="sectionName" value="${record.sectionName}" required></div></div>`;
         }
         editModal.classList.add('active');
     }
@@ -1000,13 +1037,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const type = formEditRecord.dataset.type; const id = formEditRecord.dataset.id;
         const formData = new FormData(formEditRecord);
         let payload = {}, action;
+        
         if (type === 'user') {
             action = id ? 'updateUser' : 'addUser';
             if(id) { payload = { Username: id, updates: {} }; for (let [k, v] of formData.entries()) { if (k !== 'Username' && (k !== 'LoginCode' || v !== '')) payload.updates[k] = v; } }
             else { for (let [k, v] of formData.entries()) payload[k] = v; }
-        } else {
-            action = 'updateData'; const updates = {}; for (let [k, v] of formData.entries()) updates[k] = v; payload = { type, id, updates };
+        } 
+        else if (type === 'item') {
+            action = id === 'null' || !id ? 'addItem' : 'updateData';
+            if (action === 'addItem') {
+                for (let [k, v] of formData.entries()) payload[k] = v;
+            } else {
+                const updates = {}; for (let [k, v] of formData.entries()) updates[k] = v; payload = { type, id, updates };
+            }
         }
+        else if (type === 'supplier') {
+             action = id === 'null' || !id ? 'addSupplier' : 'updateData';
+             if (action === 'addSupplier') { for (let [k, v] of formData.entries()) payload[k] = v; }
+             else { const updates = {}; for (let [k, v] of formData.entries()) updates[k] = v; payload = { type, id, updates }; }
+        }
+        else if (type === 'branch') {
+             action = id === 'null' || !id ? 'addBranch' : 'updateData';
+             if (action === 'addBranch') { for (let [k, v] of formData.entries()) payload[k] = v; }
+             else { const updates = {}; for (let [k, v] of formData.entries()) updates[k] = v; payload = { type, id, updates }; }
+        }
+        else if (type === 'section') {
+             action = id === 'null' || !id ? 'addSection' : 'updateData';
+             if (action === 'addSection') { for (let [k, v] of formData.entries()) payload[k] = v; }
+             else { const updates = {}; for (let [k, v] of formData.entries()) updates[k] = v; payload = { type, id, updates }; }
+        }
+        
+        // Convert any numeric fields
+        if(payload.cost) payload.cost = parseFloat(payload.cost);
+        
         if (await postData(action, payload, e.target.querySelector('button[type="submit"]'))) { showToast('Saved!', 'success'); closeModal(); reloadDataAndRefreshUI(); }
     }
 
