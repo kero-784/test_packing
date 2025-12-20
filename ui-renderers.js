@@ -81,10 +81,10 @@ function renderSectionsTable(data = state.sections) {
 
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
-    if (!table) return;
+    if (!table) return; // Guard clause
     const tbody = table.querySelector('tbody');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '';
     if (!list || list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${columnsConfig.length + 1}" style="text-align:center;">${_t(emptyMessage)}</td></tr>`;
@@ -240,18 +240,27 @@ function renderPaymentList() {
 function renderPendingTransfers() {
     const container = document.getElementById('pending-transfers-card');
     const table = document.getElementById('table-pending-transfers');
+    
     if(!container || !table) return;
     
     const tbody = table.querySelector('tbody');
     tbody.innerHTML = '';
+    
     const groupedTransfers = {};
     (state.transactions || []).filter(t => t.type === 'transfer_out' && t.Status === 'In Transit').forEach(t => {
         if (!groupedTransfers[t.batchId]) groupedTransfers[t.batchId] = { ...t, items: [] };
         groupedTransfers[t.batchId].items.push(t);
     });
-    const visibleTransfers = Object.values(groupedTransfers).filter(t => userCan('viewAllBranches') || t.toBranchCode === state.currentUser.AssignedBranchCode);
     
-    if (visibleTransfers.length === 0) { container.style.display = 'none'; return; }
+    const visibleTransfers = Object.values(groupedTransfers).filter(t => {
+        if (userCan('viewAllBranches')) return true;
+        return String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode);
+    });
+    
+    if (visibleTransfers.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
     
     visibleTransfers.forEach(t => {
         const tr = document.createElement('tr');
@@ -425,81 +434,6 @@ function renderPendingRequests() {
         tr.innerHTML = `<td>${first.RequestID}</td><td>${new Date(first.Date).toLocaleString()}</td><td>${_t(first.Type)}</td><td>${first.RequestedBy}</td><td>${_t('from_branch')}: ${fromSection}<br>${_t('to_branch')}: ${toBranch}</td><td>${itemsSummary}</td><td><div class="action-buttons"><button class="primary small btn-approve-request" data-id="${first.RequestID}" ${!canApprove ? 'disabled' : ''}>Approve</button><button class="danger small btn-reject-request" data-id="${first.RequestID}" ${!canApprove ? 'disabled' : ''}>${_t('reject')}</button></div></td>`;
         tbody.appendChild(tr);
     });
-}
-
-function renderSupplierStatement(supplierCode, startDateStr, endDateStr) {
-    const resultsContainer = document.getElementById('supplier-statement-results');
-    const exportBtn = document.getElementById('btn-export-supplier-statement');
-    if(!resultsContainer || !exportBtn) return;
-    
-    const supplier = findByKey(state.suppliers, 'supplierCode', supplierCode);
-    if (!supplier) { exportBtn.disabled = true; return; }
-    const financials = calculateSupplierFinancials();
-    const supplierData = financials[supplierCode];
-    if(!supplierData) { resultsContainer.innerHTML = `<p>No financial data found.</p>`; exportBtn.disabled = true; return; }
-    const sDate = startDateStr ? new Date(startDateStr) : null; if(sDate) sDate.setHours(0,0,0,0);
-    const eDate = endDateStr ? new Date(endDateStr) : null; if(eDate) eDate.setHours(23, 59, 59, 999);
-    let openingBalance = 0;
-    if (sDate) { supplierData.events.forEach(event => { if (new Date(event.date) < sDate) openingBalance += (event.debit || 0) - (event.credit || 0); }); }
-    const filteredEvents = supplierData.events.filter(event => { const eventDate = new Date(event.date); return (!sDate || eventDate >= sDate) && (!eDate || eventDate <= eDate); });
-    let balance = openingBalance; let tableBodyHtml = '';
-    if (sDate) tableBodyHtml += `<tr style="background-color: var(--bg-color);"><td colspan="3"><strong>${_t('opening_balance_as_of', {date: sDate.toLocaleDateString()})}</strong></td><td>-</td><td>-</td><td><strong>${openingBalance.toFixed(2)} EGP</strong></td></tr>`;
-    filteredEvents.forEach(event => { balance += (event.debit || 0) - (event.credit || 0); tableBodyHtml += `<tr><td>${new Date(event.date).toLocaleDateString()}</td><td>${event.type}</td><td>${event.ref}</td><td>${event.debit > 0 ? event.debit.toFixed(2) : '-'}</td><td>${event.credit > 0 ? event.credit.toFixed(2) : '-'}</td><td>${balance.toFixed(2)} EGP</td></tr>`; });
-    resultsContainer.innerHTML =`<div class="printable-document"><div class="printable-header"><h2>${_t('supplier_statement_title', {supplierName: supplier.name})}</h2></div><div class="report-area"><table id="table-supplier-statement-report"><thead><tr><th>${_t('table_h_date')}</th><th>${_t('table_h_type')}</th><th>${_t('reference')}</th><th>${_t('table_h_debit')}</th><th>${_t('table_h_credit')}</th><th>${_t('table_h_balance')}</th></tr></thead><tbody>${tableBodyHtml}</tbody><tfoot><tr style="font-weight:bold; background-color: var(--bg-color);"><td colspan="5" style="text-align:right;">${_t('closing_balance')}</td><td>${balance.toFixed(2)} EGP</td></tr></tfoot></table></div></div>`;
-    resultsContainer.style.display = 'block'; exportBtn.disabled = false;
-}
-
-function renderUnifiedConsumptionReport() {
-    const resultsContainer = document.getElementById('consumption-report-results');
-    const exportBtn = document.getElementById('btn-export-consumption-report');
-    if(!resultsContainer || !exportBtn) return;
-    
-    const selectedBranches = Array.from(state.reportSelectedBranches);
-    const selectedSections = Array.from(state.reportSelectedSections);
-    const selectedItems = Array.from(state.reportSelectedItems);
-    const startDate = document.getElementById('consumption-start-date').value;
-    const endDate = document.getElementById('consumption-end-date').value;
-    let filteredTx = (state.transactions || []).filter(t => t.type === 'issue');
-    const sDate = startDate ? new Date(startDate) : null; if(sDate) sDate.setHours(0,0,0,0);
-    const eDate = endDate ? new Date(endDate) : null; if(eDate) eDate.setHours(23,59,59,999);
-    if(selectedBranches.length > 0) filteredTx = filteredTx.filter(t => selectedBranches.includes(t.fromBranchCode));
-    if(selectedSections.length > 0) filteredTx = filteredTx.filter(t => selectedSections.includes(t.sectionCode));
-    if(selectedItems.length > 0) filteredTx = filteredTx.filter(t => selectedItems.includes(t.itemCode));
-    if(sDate) filteredTx = filteredTx.filter(t => new Date(t.date) >= sDate);
-    if(eDate) filteredTx = filteredTx.filter(t => new Date(t.date) <= eDate);
-    const reportData = {}; let grandTotalValue = 0;
-    filteredTx.forEach(t => {
-        const branch = findByKey(state.branches, 'branchCode', t.fromBranchCode);
-        const section = findByKey(state.sections, 'sectionCode', t.sectionCode);
-        const item = findByKey(state.items, 'code', t.itemCode);
-        if (!branch || !section || !item) return;
-        const value = (parseFloat(t.quantity) || 0) * (parseFloat(item.cost) || 0); // Using current cost for simplicity
-        grandTotalValue += value;
-        if (!reportData[branch.branchName]) reportData[branch.branchName] = { totalValue: 0, sections: {} };
-        if (!reportData[branch.branchName].sections[section.sectionName]) reportData[branch.branchName].sections[section.sectionName] = { totalValue: 0, items: {} };
-        if (!reportData[branch.branchName].sections[section.sectionName].items[item.name]) reportData[branch.branchName].sections[section.sectionName].items[item.name] = { totalValue: 0, totalQty: 0, item: item };
-        reportData[branch.branchName].totalValue += value;
-        reportData[branch.branchName].sections[section.sectionName].totalValue += value;
-        reportData[branch.branchName].sections[section.sectionName].items[item.name].totalValue += value;
-        reportData[branch.branchName].sections[section.sectionName].items[item.name].totalQty += parseFloat(t.quantity) || 0;
-    });
-    let tableHtml = `<table id="table-consumption-report"><thead><tr><th>Name</th><th style="text-align:right;">Total Qty</th><th style="text-align:right;">Total Value</th></tr></thead><tbody>`;
-    for (const branchName in reportData) {
-        const branchData = reportData[branchName];
-        tableHtml += `<tr class="consumption-group-branch"><td>${branchName}</td><td></td><td style="text-align:right;">${branchData.totalValue.toFixed(2)}</td></tr>`;
-        for(const sectionName in branchData.sections) {
-            const sectionData = branchData.sections[sectionName];
-            tableHtml += `<tr class="consumption-group-section"><td>${sectionName}</td><td></td><td style="text-align:right;">${sectionData.totalValue.toFixed(2)}</td></tr>`;
-             for(const itemName in sectionData.items) {
-                const itemData = sectionData.items[itemName];
-                tableHtml += `<tr class="consumption-item-row"><td>${itemName}</td><td style="text-align:right;">${itemData.totalQty.toFixed(2)}</td><td style="text-align:right;">${itemData.totalValue.toFixed(2)}</td></tr>`;
-             }
-        }
-    }
-    tableHtml += `</tbody><tfoot><tr style="font-weight:bold; background-color:var(--bg-color);"><td colspan="2" style="text-align:right;">Grand Total</td><td style="text-align:right;">${grandTotalValue.toFixed(2)} EGP</td></tr></tfoot></table>`;
-    resultsContainer.innerHTML = `<div class="printable-document">${tableHtml}</div>`;
-    resultsContainer.style.display = 'block';
-    exportBtn.disabled = false;
 }
 
 // --- DOCUMENT GENERATORS ---
