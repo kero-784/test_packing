@@ -35,7 +35,8 @@ async function attemptLogin(username, loginCode) {
 
         loginContainer.style.display = 'none';
         appContainer.style.display = 'flex';
-        initializeAppUI();
+        // Calls the initialization in app.js
+        window.initializeAppUI(); 
     } catch (error) {
         loginError.textContent = error.message;
         loginLoader.style.display = 'none';
@@ -59,7 +60,12 @@ async function postData(action, data, buttonEl) {
         const response = await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'cors',
-            body: JSON.stringify({ username, loginCode, action, data })
+            body: JSON.stringify({
+                username,
+                loginCode,
+                action,
+                data
+            })
         });
         const result = await response.json();
         if (result.status !== 'success') throw new Error(result.message || 'An unknown error occurred on the server.');
