@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLogout = document.getElementById('btn-logout');
     const globalRefreshBtn = document.getElementById('global-refresh-button');
     const mainContent = document.querySelector('.main-content');
+    const installBtn = document.getElementById('btn-install-pwa');
 
     // Modals
     const itemSelectorModal = document.getElementById('item-selector-modal');
@@ -38,6 +39,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CORE INITIALIZATION ---
     function init() {
         Logger.debug('Executing init()...');
+        
+        // PWA Install Logic
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installBtn) {
+                installBtn.style.display = 'inline-flex';
+                installBtn.addEventListener('click', () => {
+                    installBtn.style.display = 'none';
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            Logger.info('User accepted the A2HS prompt');
+                        } else {
+                            Logger.info('User dismissed the A2HS prompt');
+                        }
+                        deferredPrompt = null;
+                    });
+                });
+            }
+        });
+        window.addEventListener('appinstalled', () => {
+            if(installBtn) installBtn.style.display = 'none';
+            Logger.info('PWA was installed');
+        });
+
         const langSwitcher = document.getElementById('lang-switcher');
         const savedLang = localStorage.getItem('userLanguage') || 'en';
         state.currentLanguage = savedLang;
@@ -515,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }); 
     }
 
-    // --- FORM HANDLERS (Simplified for brevity, ensuring null checks) ---
+    // --- FORM HANDLERS ---
     function attachFormListeners() {
         const addItemForm = document.getElementById('form-add-item');
         if (addItemForm) {
