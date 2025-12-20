@@ -99,9 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('view-title').dataset.translateKey = viewTitleKey;
         }
 
+        // Sub-view logic
         const parentView = document.getElementById(`view-${viewId}`);
         if (parentView) {
             let targetSubViewId = subViewId;
+            // If no specific subview requested, find the first available one in the markup
             if (!targetSubViewId) {
                 const firstVisibleTab = parentView.querySelector('.sub-nav-item:not([style*="display: none"])');
                 if (firstVisibleTab) targetSubViewId = firstVisibleTab.dataset.subview;
@@ -136,6 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('dashboard-total-value').textContent = `${totalValue.toFixed(2)} EGP`;
                 break;
             case 'setup':
+                const setupView = document.getElementById('view-setup');
+                if(!setupView) return;
                 document.getElementById('form-add-item').parentElement.style.display = userCan('createItem') ? 'block' : 'none';
                 document.getElementById('form-add-supplier').parentElement.style.display = userCan('createSupplier') ? 'block' : 'none';
                 document.getElementById('form-add-branch').parentElement.style.display = userCan('createBranch') ? 'block' : 'none';
@@ -186,9 +190,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'reports':
                 populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
-                document.getElementById('consumption-branch-count').textContent = `${state.reportSelectedBranches.size} selected`;
-                document.getElementById('consumption-section-count').textContent = `${state.reportSelectedSections.size} selected`;
-                document.getElementById('consumption-item-count').textContent = `${state.reportSelectedItems.size} selected`;
+                const branchCount = document.getElementById('consumption-branch-count');
+                if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
+                const sectionCount = document.getElementById('consumption-section-count');
+                if(sectionCount) sectionCount.textContent = `${state.reportSelectedSections.size} selected`;
+                const itemCount = document.getElementById('consumption-item-count');
+                if(itemCount) itemCount.textContent = `${state.reportSelectedItems.size} selected`;
                 break;
             case 'stock-levels':
                 document.getElementById('stock-levels-title').textContent = userCan('viewAllBranches') ? _t('stock_by_item_all_branches') : _t('stock_by_item_your_branch');
