@@ -1,3 +1,6 @@
+// ui-renderers.js
+
+// --- HELPER FUNCTIONS ---
 function getVisibleBranchesForCurrentUser() {
     if (!state.currentUser) return [];
     if (userCan('viewAllBranches')) { return state.branches; }
@@ -78,8 +81,10 @@ function renderSectionsTable(data = state.sections) {
 
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
-    if (!table) return; 
+    if (!table) return;
     const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     if (!list || list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${columnsConfig.length + 1}" style="text-align:center;">${_t(emptyMessage)}</td></tr>`;
@@ -178,23 +183,28 @@ function renderItemInquiry(searchTerm) {
     const branchesToDisplay = getVisibleBranchesForCurrentUser();
     filteredItems.slice(0, 10).forEach(item => {
         html += `<h4>${item.name} (${item.code})</h4><table><thead><tr><th>${_t('branch')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_value')}</th></tr></thead><tbody>`;
-        let found = false; let totalQty = 0; let totalValue = 0;
+        let found = false;
+        let totalQty = 0;
+        let totalValue = 0;
         branchesToDisplay.forEach(branch => {
             const itemStock = stockByBranch[branch.branchCode]?.[item.code];
             if (itemStock && itemStock.quantity > 0) {
                 const value = itemStock.quantity * itemStock.avgCost;
                 html += `<tr><td>${branch.branchName} (${branch.branchCode || ''})</td><td>${itemStock.quantity.toFixed(2)}</td><td>${value.toFixed(2)} EGP</td></tr>`;
-                totalQty += itemStock.quantity; totalValue += value; found = true;
+                totalQty += itemStock.quantity;
+                totalValue += value;
+                found = true;
             }
         });
-        if (!found) html += `<tr><td colspan="3">${_t('no_stock_for_item')}</td></tr>`;
-        else html += `<tr style="font-weight:bold; background-color: var(--bg-color);"><td>${_t('table_h_total')}</td><td>${totalQty.toFixed(2)}</td><td>${totalValue.toFixed(2)} EGP</td></tr>`;
+        if (!found) {
+            html += `<tr><td colspan="3">${_t('no_stock_for_item')}</td></tr>`;
+        } else {
+            html += `<tr style="font-weight:bold; background-color: var(--bg-color);"><td>${_t('table_h_total')}</td><td>${totalQty.toFixed(2)}</td><td>${totalValue.toFixed(2)} EGP</td></tr>`
+        }
         html += `</tbody></table><hr>`;
     });
     resultsContainer.innerHTML = html;
 }
-
-// --- MISSING FUNCTIONS (Now Included) ---
 
 function renderPaymentList() {
     const supplierEl = document.getElementById('payment-supplier-select');
