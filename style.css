@@ -112,7 +112,7 @@ html[dir="rtl"] body {
 .pending-requests-widget .icon { width: 20px; height: 20px; }
 .user-branch-display { margin-left: auto; background-color: var(--primary-light); color: var(--primary-dark); font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 8px; flex-shrink: 0; }
 
-/* --- Sub-Navigation for Tabs --- */
+/* --- Sub-Navigation for Tabs (Scrollable on Mobile) --- */
 .sub-nav { 
     display: flex; gap: 8px; border-bottom: 2px solid var(--border-color); 
     margin-bottom: 24px; flex-wrap: nowrap; overflow-x: auto; 
@@ -153,26 +153,83 @@ html[dir="rtl"] body {
 .toolbar .filters-container { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-left: auto; }
 .toolbar h2 { margin: 0; padding: 0; border: none; font-size: 20px; font-weight: 600;}
 
-/* --- Report & Table Area --- */
-.report-area {
+/* --- Report Controls --- */
+.report-generator-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.report-generator-controls select { min-width: 150px; } 
+.report-generator-controls input { min-width: 120px; } 
+.report-generator-controls button { flex-shrink: 0; }
+.report-area select[multiple] {
+    background-color: var(--card-bg-color);
+    height: 150px;
+    padding: 8px;
+}
+.report-selection-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.report-selection-control button {
+    flex-shrink: 0;
+}
+.report-selection-control span {
+    font-size: 14px;
+    color: var(--text-light-color);
+    font-style: italic;
+    flex-shrink: 0;
+}
+
+/* --- Table & Scroll Fixes (CRITICAL) --- */
+.card table, .report-area table {
+    display: block; /* Allows scrolling */
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    margin-top: 15px;
-    background: #fff;
+    white-space: nowrap;
 }
 
-/* --- Table Styling --- */
-table { width: 100%; border-collapse: collapse; min-width: 600px; }
-th, td { padding: 12px 16px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+/* Ensure table takes full width visually inside scroll area */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px; /* Force scrolling on small screens */
+}
+
+/* Style Cells */
+th, td {
+    padding: 12px 16px;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-color);
+}
 th { font-size: 13px; font-weight: 600; color: var(--text-light-color); background-color: var(--bg-color); text-transform: uppercase; letter-spacing: 0.5px; }
 td { font-size: 14px; }
 td button.btn-edit { width: 100%; text-align: center; justify-content: center;}
 tbody tr { transition: background-color 0.15s ease-in-out; }
 tbody tr:hover { background-color: #f7faff; }
-table input.table-input { width: 100%; min-width: 80px; padding: 8px; font-size: 14px; background-color: white; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box;}
+
+/* Fix Inputs inside tables */
+table input.table-input {
+    width: 100%;
+    min-width: 80px; 
+    max-width: 120px; 
+    padding: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+    background-color: white;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+/* Scrollbar Styling */
+.card table::-webkit-scrollbar, .report-area::-webkit-scrollbar, 
+.sub-nav::-webkit-scrollbar {
+    height: 8px;
+}
+.card table::-webkit-scrollbar-thumb, .report-area::-webkit-scrollbar-thumb,
+.sub-nav::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+}
 
 /* --- Form Elements --- */
 .form-group { margin-bottom: 16px; }
@@ -231,6 +288,12 @@ button:disabled { background-color: #D1D5DB; border-color: #D1D5DB; color: #6B72
 .modal-item input[type="checkbox"] { width: 20px; height: 20px; margin-right: 16px; accent-color: var(--primary-color); }
 .modal-item label { flex-grow: 1; margin: 0; display: block; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 20px 24px; border-top: 1px solid var(--border-color); background-color: #F7F8FC; flex-shrink: 0; }
+
+.permission-category { font-size: 16px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); color: var(--primary-dark); }
+.permissions-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+#view-transfer-modal-body p { margin: 4px 0; font-size: 16px; }
+#view-transfer-modal-body p strong { color: var(--text-light-color); display: inline-block; width: 120px; }
+
 /* --- Toggle Switch Styles --- */
 .form-group-toggle { display: flex; align-items: center; justify-content: space-between; max-width: 400px; }
 .form-group-toggle label { margin-bottom: 0; font-weight: 600; }
@@ -246,6 +309,7 @@ input:checked + .slider:before { transform: translateX(26px); }
 
 /* --- Admin Context Modal --- */
 #context-modal-message { margin-bottom: 24px; color: var(--text-light-color); line-height: 1.6; }
+
 
 /*
 ====================================
@@ -347,11 +411,10 @@ html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
         padding: 24px;
     }
 
-    .sub-nav {
-        overflow-x: auto;
-        white-space: nowrap;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 5px;
+    /* Report Controls on Mobile */
+    .report-generator-controls {
+        flex-direction: column;
+        align-items: stretch;
     }
     
     .card {
