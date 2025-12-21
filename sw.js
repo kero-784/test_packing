@@ -1,4 +1,3 @@
---- START OF FILE sw.js ---
 
 const CACHE_NAME = 'stockwise-v3-ui-update'; // Changed version to force update
 const ASSETS_TO_CACHE = [
