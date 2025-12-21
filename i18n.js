@@ -1,5 +1,4 @@
 
-
 const translations = {
     'en': {
         'packing_stock': 'Packing Stock',
@@ -9,12 +8,13 @@ const translations = {
         'login': 'Login',
         'signing_in': 'Signing in...',
         'hi_user': 'Hi, {userFirstName}',
-        'refresh_all_data': 'Refresh All Data',
+        'refresh_all_data': 'Refresh Data',
         'dashboard': 'Dashboard',
         'stock_operations': 'Stock Operations',
         'purchasing': 'Purchasing',
-        'requests': 'Internal Distribution', // UPDATED
-        'payments': 'Financials', // UPDATED
+        'requests': 'Internal Distribution', // Updated Tab Name
+        'payments': 'Financials', // Updated Tab Name
+        'adjustments': 'Adjustments', // New Tab Name
         'reports': 'Reports',
         'stock_levels': 'Stock Levels',
         'transaction_history': 'Transaction History',
@@ -57,6 +57,8 @@ const translations = {
         'section_code': 'Section Code (Unique ID)',
         'section_name': 'Section Name',
         'add_section_btn': 'Add Section',
+        'company_settings': 'Company Settings', // New
+        'save_changes': 'Save Changes',
         'auto_backup_settings': 'Automatic Backup Settings',
         'auto_backup_desc': 'Enable automatic backups to save a copy of your data periodically. Backups are stored in "StockApp Backups" in Google Drive.',
         'enable_auto_backups': 'Enable Automatic Backups',
@@ -128,7 +130,8 @@ const translations = {
         'internal_transfer': 'Internal Transfer',
         'return_to_supplier': 'Return to Supplier',
         'in_transit_report': 'In-Transit Report',
-        'adjustments': 'Adjustments',
+        'stock_adj_report': 'Stock Adj Report', // New
+        'supplier_adj_report': 'Supplier Adj Report', // New
         'pending_incoming_transfers': 'Pending Incoming Transfers',
         'table_h_date_sent': 'Date Sent',
         'table_h_from_branch': 'From Branch',
@@ -247,7 +250,6 @@ const translations = {
         'cancel': 'Cancel',
         'select_invoices_modal_title': 'Select Invoices to Pay',
         'edit_modal_title': 'Edit',
-        'save_changes': 'Save Changes',
         'confirm_transfer_receipt_modal_title': 'Confirm Transfer Receipt',
         'reject': 'Reject',
         'confirm_receipt': 'Confirm Receipt',
@@ -367,8 +369,9 @@ const translations = {
         'dashboard': 'لوحة التحكم',
         'stock_operations': 'عمليات المخزون',
         'purchasing': 'المشتريات',
-        'requests': 'التوزيع الداخلي', // UPDATED
-        'payments': 'المالية', // UPDATED
+        'requests': 'التوزيع الداخلي', // Updated
+        'payments': 'المالية', // Updated
+        'adjustments': 'التسويات', // New
         'reports': 'التقارير',
         'stock_levels': 'مستويات المخزون',
         'transaction_history': 'سجل الحركات',
@@ -411,6 +414,8 @@ const translations = {
         'section_code': 'كود القسم (فريد)',
         'section_name': 'اسم القسم',
         'add_section_btn': 'إضافة قسم',
+        'company_settings': 'إعدادات الشركة', // New
+        'save_changes': 'حفظ التغييرات',
         'auto_backup_settings': 'إعدادات النسخ الاحتياطي التلقائي',
         'auto_backup_desc': 'قم بتمكين النسخ الاحتياطي التلقائي لحفظ نسخة من بياناتك بشكل دوري. يتم تخزين النسخ الاحتياطية في "StockApp Backups" في Google Drive.',
         'enable_auto_backups': 'تمكين النسخ الاحتياطي التلقائي',
@@ -482,7 +487,8 @@ const translations = {
         'internal_transfer': 'تحويل داخلي',
         'return_to_supplier': 'مرتجع للمورد',
         'in_transit_report': 'تقرير البضاعة بالطريق',
-        'adjustments': 'التسويات',
+        'stock_adj_report': 'تقرير تسوية المخزون', // New
+        'supplier_adj_report': 'تقرير تسوية الموردين', // New
         'pending_incoming_transfers': 'تحويلات واردة معلقة',
         'table_h_date_sent': 'تاريخ الإرسال',
         'table_h_from_branch': 'من فرع',
@@ -601,7 +607,6 @@ const translations = {
         'cancel': 'إلغاء',
         'select_invoices_modal_title': 'اختر الفواتير للدفع',
         'edit_modal_title': 'تعديل',
-        'save_changes': 'حفظ التغييرات',
         'confirm_transfer_receipt_modal_title': 'تأكيد استلام التحويل',
         'reject': 'رفض',
         'confirm_receipt': 'تأكيد الاستلام',
