@@ -219,7 +219,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         if(stockAdjTab) stockAdjTab.style.display = 'none';
                         if(stockAdjRepTab) stockAdjRepTab.style.display = 'none';
                     }
-                    
+                    if(!userCan('opFinancialAdjustment')) {
+                        const suppAdjTab = document.querySelector('[data-subview="supplier-adj"]');
+                        const suppAdjRepTab = document.querySelector('[data-subview="supplier-adj-report"]');
+                        if(suppAdjTab) suppAdjTab.style.display = 'none';
+                        if(suppAdjRepTab) suppAdjRepTab.style.display = 'none';
+                    }
+
                     renderAdjustmentListTable();
                     renderStockAdjustmentReport();
                     renderSupplierAdjustmentReport();
@@ -237,6 +243,10 @@ document.addEventListener('DOMContentLoaded', () => {
                      
                      const branchCount = document.getElementById('consumption-branch-count');
                      if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
+                     const sectionCount = document.getElementById('consumption-section-count');
+                     if(sectionCount) sectionCount.textContent = `${state.reportSelectedSections.size} selected`;
+                     const itemCount = document.getElementById('consumption-item-count');
+                     if(itemCount) itemCount.textContent = `${state.reportSelectedItems.size} selected`;
                      break;
 
                 case 'financials':
@@ -265,6 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     renderItemCentricStockView();
+                    const itemInq = document.getElementById('item-inquiry-search');
                     if(document.getElementById('item-inquiry-results')) document.getElementById('item-inquiry-results').innerHTML = '';
                     break;
                     
@@ -639,10 +650,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED) ---
+    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED - GLOBAL DELEGATION) ---
     function attachSubNavListeners() { 
         document.body.addEventListener('click', e => {
-            // Use event delegation because sub-navs might be re-rendered
             const btn = e.target.closest('.sub-nav-item');
             if (!btn) return;
             
@@ -658,17 +668,18 @@ document.addEventListener('DOMContentLoaded', () => {
             
             Logger.info(`Sub-tab clicked: ${subviewId} in ${parentView.id}`);
 
-            // Update UI
+            // Update Buttons
             parentView.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active')); 
             btn.classList.add('active'); 
             
+            // Update Views
             parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
             const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
             
             if (subViewToShow) {
                 subViewToShow.classList.add('active');
                 
-                // Refresh data for the specific view if necessary
+                // Explicitly refresh data when tab changes to ensure tables render
                 refreshViewData(parentView.id.replace('view-','')); 
             }
         });
@@ -880,9 +891,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   const group = state.itemRequests.filter(r => r.RequestID === batchId); // Check if it's a request ID
                   if (group.length > 0) {
                       // It's a request, find the associated transaction if approved/completed
-                      // Or generate a draft based on the request data
                       const first = group[0];
-                      // Find items
                       const items = group.map(r => ({ itemCode: r.ItemCode, quantity: r.IssuedQuantity || r.Quantity }));
                       generateRequestIssueDocument({
                           ref: first.RequestID,
