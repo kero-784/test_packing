@@ -870,6 +870,31 @@ document.addEventListener('DOMContentLoaded', () => {
              } else if (type === 'adjustment') {
                  const group = state.transactions.filter(t => t.batchId === batchId);
                  if(group.length) generateAdjustmentDocument({ ...group[0], items: group });
+             } else if (type === 'issue') { // Explicit handle for My Requests View/Print
+                  const group = state.itemRequests.filter(r => r.RequestID === batchId); // Check if it's a request ID
+                  if (group.length > 0) {
+                      // It's a request, find the associated transaction if approved/completed
+                      // Or generate a draft based on the request data
+                      const first = group[0];
+                      // Find items
+                      const items = group.map(r => ({ itemCode: r.ItemCode, quantity: r.IssuedQuantity || r.Quantity }));
+                      generateRequestIssueDocument({
+                          ref: first.RequestID,
+                          date: first.Date,
+                          fromBranchCode: first.FromSection, // Mapping logic might differ based on your data
+                          sectionCode: first.ToBranch,
+                          items: items,
+                          notes: first.StatusNotes
+                      });
+                  } else {
+                      // Fallback for standard transaction lookup
+                      const transactionGroup = state.transactions.filter(t => t.batchId === batchId);
+                       if (transactionGroup.length > 0) {
+                             const first = transactionGroup[0];
+                             const data = { ...first, items: transactionGroup.map(t => ({...t, itemName: findByKey(state.items, 'code', t.itemCode)?.name })) };
+                             generateIssueDocument(data);
+                       }
+                  }
              } else {
                  const transactionGroup = state.transactions.filter(t => t.batchId === batchId);
                  if (transactionGroup.length > 0) {
@@ -877,7 +902,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      const data = { ...first, items: transactionGroup.map(t => ({...t, itemName: findByKey(state.items, 'code', t.itemCode)?.name })) };
                      if (type === 'receive') generateReceiveDocument(data);
                      else if (type.startsWith('transfer')) generateTransferDocument(data);
-                     else if (type === 'issue') generateIssueDocument(data);
                      else if (type === 'return_out') generateReturnDocument(data);
                  }
              }
@@ -910,32 +934,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Print Button Handlers
         if (btn.id === 'btn-print-pending-requests') window.printReport('subview-pending-approval');
-    }
-
-    function handleGlobalClicks(e) {
-        if (e.target.classList.contains('close-button') || e.target.classList.contains('modal-cancel')) closeModal();
-        if (e.target.id === 'btn-save-po-changes') savePOChanges(e);
-        if (e.target.id === 'btn-save-invoice-changes') saveInvoiceChanges(e);
-        if (e.target.id === 'btn-confirm-request-approval') confirmRequestApproval(e);
-        if (e.target.id === 'btn-confirm-receive-transfer') {
-            const batchId = e.target.dataset.batchId;
-            const transferGroup = state.transactions.filter(t => t.batchId === batchId);
-            const payload = { originalBatchId: batchId, ref: transferGroup[0].ref, fromBranchCode: transferGroup[0].fromBranchCode, toBranchCode: transferGroup[0].toBranchCode, items: transferGroup.map(t => ({ itemCode: t.itemCode, quantity: t.quantity })), notes: `Received ${batchId}` };
-            postData('receiveTransfer', payload, e.target, 'Receiving...').then(res => { if(res) { showToast('Received!', 'success'); closeModal(); reloadDataAndRefreshUI(); } });
-        }
-        if (e.target.id === 'btn-reject-transfer') {
-             if(confirm('Reject transfer?')) postData('rejectTransfer', { batchId: e.target.dataset.batchId }, e.target, 'Rejecting...').then(res => { if(res) { showToast('Rejected.', 'success'); closeModal(); reloadDataAndRefreshUI(); } });
-        }
-        if (e.target.id === 'btn-print-draft-issue-note') {
-             // Logic to print draft issue note from approval modal
-             const requestId = document.getElementById('btn-confirm-request-approval').dataset.requestId;
-             const reqs = state.itemRequests.filter(r => r.RequestID === requestId);
-             if(reqs.length) {
-                 const first = reqs[0];
-                 const items = Array.from(document.querySelectorAll('#approve-request-modal tbody tr')).map(tr => ({ itemCode: tr.querySelector('input').dataset.itemCode, quantity: parseFloat(tr.querySelector('input').value) || 0 }));
-                 generateRequestIssueDocument({ ref: requestId, date: new Date().toISOString(), fromBranchCode: first.ToBranch, sectionCode: first.FromSection, items: items });
-             }
-        }
     }
 
     // --- LOGIC HELPERS ---
@@ -1310,7 +1308,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Show Modal
         viewTransferModal.classList.add('active');
-    }
     }
 
     function openSelectionModal(type) {
