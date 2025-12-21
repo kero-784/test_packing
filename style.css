@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap');
+--- START OF FILE style.css ---
 
-/* --- MODERN UI REDESIGN V5 --- */
+/* --- MODERN UI REDESIGN V6 (Final Print & Layout Fixes) --- */
 
 :root {
     --primary-color: #4A90E2;
@@ -25,6 +25,8 @@
     --sidebar-width: 250px;
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -311,7 +313,7 @@ button:disabled { background-color: #D1D5DB; border-color: #D1D5DB; color: #6B72
 #view-transfer-modal-body p { margin: 4px 0; font-size: 16px; }
 #view-transfer-modal-body p strong { color: var(--text-light-color); display: inline-block; width: 120px; }
 
-/* Modal List Items (Selection) - Improved */
+/* Modal List Items (Selection) */
 .modal-item-list { 
     display: flex; 
     flex-direction: column; 
@@ -319,7 +321,7 @@ button:disabled { background-color: #D1D5DB; border-color: #D1D5DB; color: #6B72
 }
 .modal-item {
     display: flex;
-    align-items: center; /* Vertically center */
+    align-items: center;
     gap: 12px;
     padding: 10px;
     border-bottom: 1px solid #f0f0f0;
@@ -332,7 +334,7 @@ button:disabled { background-color: #D1D5DB; border-color: #D1D5DB; color: #6B72
     width: 20px;
     height: 20px;
     margin: 0;
-    flex-shrink: 0; /* Prevent checkbox from squishing */
+    flex-shrink: 0; 
     cursor: pointer;
 }
 .modal-item label {
@@ -358,37 +360,6 @@ input:checked + .slider:before { transform: translateX(26px); }
 
 /* --- Admin Context Modal --- */
 #context-modal-message { margin-bottom: 24px; color: var(--text-light-color); line-height: 1.6; }
-
-/* --- Printing Styles (Fixes "Print entire screen" issue) --- */
-@media print {
-    body * {
-        visibility: hidden;
-        height: 0;
-        overflow: hidden;
-    }
-    
-    #print-area, #print-area * {
-        visibility: visible;
-        height: auto;
-        overflow: visible;
-    }
-    
-    #print-area {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        margin: 0;
-        padding: 20px;
-        background: white;
-        z-index: 9999;
-    }
-    
-    .printable-document {
-        box-shadow: none;
-        border: 1px solid #ccc;
-    }
-}
 
 /*
 ====================================
@@ -513,4 +484,81 @@ html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
         width: 100%;
         max-width: 100%;
     }
+}
+
+/*
+====================================
+===== PRINT STYLES (CRITICAL) =====
+====================================
+*/
+@media print {
+    /* Hide the entire application UI */
+    .app-container,
+    .mobile-header,
+    .sidebar,
+    .login-box,
+    .modal-overlay,
+    #toast-container,
+    .no-print {
+        display: none !important;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+    }
+    
+    /* Ensure body acts as a canvas for the print area */
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: white;
+        height: auto;
+        overflow: visible;
+        width: 100%;
+    }
+    
+    /* Reveal and style the print area */
+    #print-area {
+        display: block !important;
+        visibility: visible;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        padding: 20px;
+        background: white;
+        z-index: 9999;
+        font-size: 12pt;
+        color: black;
+    }
+    
+    /* Ensure all children of print area are visible */
+    #print-area * {
+        visibility: visible;
+        color: black !important;
+        box-shadow: none !important;
+    }
+    
+    .printable-document {
+        border: none !important;
+        box-shadow: none !important;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Improve Table Printing */
+    table {
+        width: 100% !important;
+        border-collapse: collapse;
+    }
+    
+    th, td {
+        border: 1px solid #ccc;
+        padding: 8px;
+    }
+    
+    /* Page break handling */
+    tr { page-break-inside: avoid; }
 }
