@@ -1,5 +1,3 @@
-
-
 document.addEventListener('DOMContentLoaded', () => {
     Logger.info('DOM fully loaded. Starting initialization...');
 
@@ -34,6 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const editModalBody = document.getElementById('edit-modal-body');
     const editModalTitle = document.getElementById('edit-modal-title');
     const formEditRecord = document.getElementById('form-edit-record');
+
+    // --- GLOBAL HELPERS (Totalizers) ---
+    window.updateReceiveGrandTotal = () => { try { let grandTotal = 0; (state.currentReceiveList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('receive-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updateReceiveGrandTotal', e); } };
+    window.updateTransferGrandTotal = () => { try { let grandTotalQty = 0; (state.currentTransferList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); const el = document.getElementById('transfer-grand-total'); if(el) el.textContent = grandTotalQty.toFixed(2); } catch(e) { Logger.error('Error in updateTransferGrandTotal', e); } };
+    window.updateIssueGrandTotal = () => { try { let grandTotalQty = 0; (state.currentIssueList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); const el = document.getElementById('issue-grand-total'); if(el) el.textContent = grandTotalQty.toFixed(2); } catch(e) { Logger.error('Error in updateIssueGrandTotal', e); } };
+    window.updatePOGrandTotal = () => { try { let grandTotal = 0; (state.currentPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('po-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updatePOGrandTotal', e); } };
+    window.updatePOEditGrandTotal = () => { try { let grandTotal = 0; (state.currentEditingPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('edit-po-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updatePOEditGrandTotal', e); } };
+    window.updateReturnGrandTotal = () => { try { let grandTotal = 0; (state.currentReturnList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('return-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updateReturnGrandTotal', e); } };
 
     // --- CORE INITIALIZATION ---
     function init() {
@@ -164,7 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.refreshViewData = async (viewId) => {
         if (!state.currentUser) return;
-        
+        Logger.debug(`refreshViewData: refreshing data for ${viewId}...`);
+
         try {
             switch(viewId) {
                 case 'dashboard':
@@ -268,7 +275,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
                     
                     state.pagination['table-transaction-history'].page = 1;
-                    renderTransactionHistory(); 
+                    const txStartDate = document.getElementById('tx-filter-start-date');
+                    const txEndDate = document.getElementById('tx-filter-end-date');
+                    const txType = document.getElementById('tx-filter-type');
+                    const txBranch = document.getElementById('tx-filter-branch');
+                    const txSearch = document.getElementById('transaction-search');
+
+                    renderTransactionHistory({
+                        startDate: txStartDate ? txStartDate.value : null,
+                        endDate: txEndDate ? txEndDate.value : null,
+                        type: txType ? txType.value : null,
+                        branch: branch ? branch.value : null,
+                        searchTerm: txSearch ? txSearch.value : null
+                    }); 
                     break;
                 
                 case 'master-data':
@@ -393,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 link.appendChild(badge);
             }
             badge.textContent = count;
+            badge.style.display = 'inline-block';
         } else if (badge) {
             badge.remove();
         }
@@ -400,6 +420,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENER ATTACHMENT ---
     function attachEventListeners() {
+        Logger.debug('Attaching global event listeners...');
+        
         if(btnLogout) btnLogout.addEventListener('click', (e) => { e.preventDefault(); location.reload(); });
         if(globalRefreshBtn) globalRefreshBtn.addEventListener('click', reloadDataAndRefreshUI);
         
@@ -408,6 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 const viewId = link.dataset.view;
                 showView(viewId);
+                
+                // Mobile Menu Logic: Close on selection
                 if (window.innerWidth <= 768 && sidebar && overlay) {
                     sidebar.classList.remove('open');
                     overlay.classList.remove('active');
@@ -416,6 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // --- MOBILE MENU LOGIC ---
         if (mobileMenuBtn && sidebar && overlay) {
             mobileMenuBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -436,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         attachFormListeners();
 
-        // Search listeners
+        // Search listeners using safe lookups
         setupSearch('search-items', renderItemsTable, 'items', ['name', 'code', 'category']);
         setupSearch('search-suppliers', renderSuppliersTable, 'suppliers', ['name', 'supplierCode']);
         setupSearch('search-branches', renderBranchesTable, 'branches', ['branchName', 'branchCode']);
@@ -549,7 +574,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
-        // Transaction Filters Logic
         ['tx-filter-start-date', 'tx-filter-end-date', 'tx-filter-type', 'tx-filter-branch', 'transaction-search'].forEach(id => {
             const el = document.getElementById(id);
             if(el) {
@@ -592,7 +616,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         switch(tableId) {
             case 'table-transaction-history':
-                // Re-read filters to maintain state
                 const startDate = document.getElementById('tx-filter-start-date');
                 const endDate = document.getElementById('tx-filter-end-date');
                 const type = document.getElementById('tx-filter-type');
@@ -616,34 +639,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SUB-NAVIGATION (TABS) LISTENER ---
+    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED) ---
     function attachSubNavListeners() { 
-        document.querySelectorAll('.sub-nav').forEach(nav => { 
-            if(nav.closest('#history-modal')) return;
+        document.body.addEventListener('click', e => {
+            // Use event delegation because sub-navs might be re-rendered
+            const btn = e.target.closest('.sub-nav-item');
+            if (!btn) return;
             
-            nav.addEventListener('click', e => { 
-                if (!e.target.classList.contains('sub-nav-item')) return; 
-                e.preventDefault();
+            // Ignore if inside a modal (history modal handles its own logic)
+            if (btn.closest('#history-modal')) return;
 
-                const subviewId = e.target.dataset.subview; 
-                const parentView = e.target.closest('.view'); 
-                
-                if (!parentView) return;
-                
-                Logger.info(`Sub-tab clicked: ${subviewId} in ${parentView.id}`);
+            e.preventDefault();
 
-                parentView.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active')); 
-                e.target.classList.add('active'); 
+            const subviewId = btn.dataset.subview; 
+            const parentView = btn.closest('.view'); 
+            
+            if (!parentView) return;
+            
+            Logger.info(`Sub-tab clicked: ${subviewId} in ${parentView.id}`);
+
+            // Update UI
+            parentView.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active')); 
+            btn.classList.add('active'); 
+            
+            parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
+            const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
+            
+            if (subViewToShow) {
+                subViewToShow.classList.add('active');
                 
-                parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
-                const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
-                
-                if (subViewToShow) {
-                    subViewToShow.classList.add('active');
-                    refreshViewData(parentView.id.replace('view-','')); 
-                }
-            }); 
-        }); 
+                // Refresh data for the specific view if necessary
+                refreshViewData(parentView.id.replace('view-','')); 
+            }
+        });
     }
 
     // --- FORM HANDLERS ---
@@ -852,7 +880,9 @@ document.addEventListener('DOMContentLoaded', () => {
                   const group = state.itemRequests.filter(r => r.RequestID === batchId); // Check if it's a request ID
                   if (group.length > 0) {
                       // It's a request, find the associated transaction if approved/completed
+                      // Or generate a draft based on the request data
                       const first = group[0];
+                      // Find items
                       const items = group.map(r => ({ itemCode: r.ItemCode, quantity: r.IssuedQuantity || r.Quantity }));
                       generateRequestIssueDocument({
                           ref: first.RequestID,
