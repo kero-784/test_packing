@@ -1,6 +1,6 @@
 --- START OF FILE sw.js ---
 
-const CACHE_NAME = 'stockwise-v2'; // Changed from v1 to v2 to force update
+const CACHE_NAME = 'stockwise-v3-ui-update'; // Changed version to force update
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -18,7 +18,7 @@ const ASSETS_TO_CACHE = [
 
 // Install Event
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Forces the new service worker to take over immediately
+  self.skipWaiting(); // Forces new SW to take control immediately
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
@@ -32,6 +32,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keyList) => {
       return Promise.all(keyList.map((key) => {
         if (key !== CACHE_NAME) {
+          console.log('[ServiceWorker] Removing old cache', key);
           return caches.delete(key);
         }
       }));
@@ -40,7 +41,7 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim(); // Immediately control all open clients
 });
 
-// Fetch Event (Network first, fall back to cache)
+// Fetch Event (Network first strategy for API, Stale-while-revalidate for assets)
 self.addEventListener('fetch', (event) => {
   // If it's an API call to Google Scripts, always go to network
   if (event.request.url.includes('script.google.com')) {
@@ -48,7 +49,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For other assets, try network first, then cache
+  // For app assets (HTML, CSS, JS), try network first to ensure updates are seen
+  // If offline, fall back to cache.
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request);
