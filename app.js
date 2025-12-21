@@ -1270,10 +1270,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openViewTransferModal(batchId) {
         const txs = state.transactions.filter(t => t.batchId === batchId);
-        document.getElementById('view-transfer-modal-body').innerHTML = `<table><thead><tr><th>Code</th><th>Qty</th></tr></thead><tbody>${txs.map(t => `<tr><td>${t.itemCode}</td><td>${t.quantity}</td></tr>`).join('')}</tbody></table>`;
+        
+        let html = `
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Code</th>
+                        <th style="width: 50%;">Item Name</th>
+                        <th style="width: 25%;">Qty</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
+        txs.forEach(t => {
+            const itemDef = findByKey(state.items, 'code', t.itemCode);
+            const itemName = itemDef ? itemDef.name : '<span style="color:red">Unknown Item</span>';
+            
+            html += `
+            <tr>
+                <td style="font-weight: 600; color: var(--primary-color);">${t.itemCode}</td>
+                <td>${itemName}</td>
+                <td style="font-weight: 700; font-size: 15px;">${parseFloat(t.quantity).toFixed(2)}</td>
+            </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+        
+        // Inject into modal body
+        document.getElementById('view-transfer-modal-body').innerHTML = html;
+        
+        // Update Title with Reference if available
+        const ref = txs[0].ref || batchId;
+        document.getElementById('view-transfer-modal-title').textContent = `${_t('confirm_receipt')}: ${ref}`;
+
+        // Bind Buttons
         document.getElementById('btn-confirm-receive-transfer').dataset.batchId = batchId;
         document.getElementById('btn-reject-transfer').dataset.batchId = batchId;
+        
+        // Show Modal
         viewTransferModal.classList.add('active');
+    }
     }
 
     function openSelectionModal(type) {
