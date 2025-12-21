@@ -1182,4 +1182,4 @@ const generateAdjustmentDocument = (data) => {
     </div>`;
     printContent(content);
 };
---- END OF FILE ui-renderers.js ---
+
