@@ -1,5 +1,4 @@
 
-
 document.addEventListener('DOMContentLoaded', () => {
     Logger.info('DOM fully loaded. Starting initialization...');
 
@@ -48,14 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
         Logger.debug('Executing init()...');
         
         // Initialize Pagination State
-        state.pagination = {
-            'table-transaction-history': { page: 1, pageSize: 20 },
-            'table-items': { page: 1, pageSize: 20 },
-            'table-suppliers': { page: 1, pageSize: 20 },
-            'table-activity-log': { page: 1, pageSize: 20 },
-            'table-po-viewer': { page: 1, pageSize: 20 },
-            'table-my-requests-history': { page: 1, pageSize: 20 }
-        };
+        // (state.pagination is defined in state.js, but we ensure defaults here if missing)
+        if(!state.pagination) state.pagination = {};
 
         // PWA Install Logic
         let deferredPrompt;
@@ -204,8 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('transfer-to-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('return-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     populateOptions(document.getElementById('return-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
-                    populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
-                    populateOptions(document.getElementById('fin-adj-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     
                     const openPOs = (state.purchaseOrders || []).filter(po => po.Status === 'Approved');
                     populateOptions(document.getElementById('receive-po-select'), openPOs, _t('select_a_po'), 'poId', 'poId', 'supplierCode');
@@ -217,17 +208,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderReturnListTable(); 
                     renderPendingTransfers(); 
                     renderInTransitReport(); 
+                    break;
+
+                case 'adjustments':
+                    populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
+                    populateOptions(document.getElementById('fin-adj-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
+                    
+                    // Check permission for Stock Adjustment Sub-tabs
+                    if(!userCan('opStockAdjustment')) {
+                        const stockAdjTab = document.querySelector('[data-subview="stock-adj"]');
+                        const stockAdjRepTab = document.querySelector('[data-subview="stock-adj-report"]');
+                        if(stockAdjTab) stockAdjTab.style.display = 'none';
+                        if(stockAdjRepTab) stockAdjRepTab.style.display = 'none';
+                    }
+                    // Check permission for Supplier Adjustment
+                    if(!userCan('opFinancialAdjustment')) {
+                        const suppAdjTab = document.querySelector('[data-subview="supplier-adj"]');
+                        const suppAdjRepTab = document.querySelector('[data-subview="supplier-adj-report"]');
+                        if(suppAdjTab) suppAdjTab.style.display = 'none';
+                        if(suppAdjRepTab) suppAdjRepTab.style.display = 'none';
+                    }
+
                     renderAdjustmentListTable();
+                    renderStockAdjustmentReport();
+                    renderSupplierAdjustmentReport();
                     break;
 
                 case 'internal-distribution':
-                     // Moved Issue Stock, Consumption Report, Requests here
                      populateOptions(document.getElementById('issue-from-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                      populateOptions(document.getElementById('issue-to-section'), state.sections, _t('select_a_section'), 'sectionCode', 'sectionName');
                      if(document.getElementById('issue-ref')) document.getElementById('issue-ref').value = generateId('ISN');
                      
                      renderRequestListTable(); 
-                     renderMyRequests(); // Should use pagination
+                     renderMyRequests(); 
                      renderPendingRequests();
                      renderIssueListTable();
                      
@@ -251,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      populateOptions(document.getElementById('po-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                      if(document.getElementById('po-ref')) document.getElementById('po-ref').value = generateId('PO');
                      renderPOListTable(); 
-                     renderPurchaseOrdersViewer(); // Pagination
+                     renderPurchaseOrdersViewer(); 
                      renderPendingFinancials();
                      break;
                     
@@ -259,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const titleEl = document.getElementById('stock-levels-title');
                     if(titleEl) titleEl.textContent = userCan('viewAllBranches') ? _t('stock_by_item_all_branches') : _t('stock_by_item_your_branch');
                     
-                    // Show/Hide Branch Select Button based on permission
                     const btnSelectBranches = document.getElementById('btn-stock-select-branches');
                     if (btnSelectBranches) {
                         btnSelectBranches.style.display = userCan('viewAllBranches') ? 'inline-flex' : 'none';
@@ -267,17 +279,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     renderItemCentricStockView();
                     const itemInq = document.getElementById('item-inquiry-search');
-                    // Reset inquiry view
                     if(document.getElementById('item-inquiry-results')) document.getElementById('item-inquiry-results').innerHTML = '';
                     break;
                     
                 case 'transaction-history': 
                     populateOptions(document.getElementById('tx-filter-branch'), state.branches, _t('all_branches'), 'branchCode', 'branchName');
-                    const txTypes = ['receive', 'issue', 'transfer_out', 'transfer_in', 'return_out', 'po', 'adjustment_in', 'adjustment_out'];
+                    const txTypes = ['receive', 'issue', 'transfer_out', 'transfer_in', 'return_out', 'po', 'adjustment_in', 'adjustment_out', 'stock_adjustment'];
                     const txTypeOptions = txTypes.map(t => ({'type': t, 'name': _t(t.replace(/_/g,''))}));
                     populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
                     
-                    // Trigger render with pagination
                     state.pagination['table-transaction-history'].page = 1;
                     const txStartDate = document.getElementById('tx-filter-start-date');
                     const txEndDate = document.getElementById('tx-filter-end-date');
@@ -299,6 +309,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderSuppliersTable(); 
                     renderBranchesTable(); 
                     renderSectionsTable();
+                    
+                    // Handle Company Settings Tab visibility
+                    const companyTab = document.querySelector('[data-subview="company"]');
+                    if(companyTab) {
+                        if (userCan('manageUsers')) {
+                            // Populate form
+                            const form = document.getElementById('form-company-settings');
+                            if(form && state.companySettings) {
+                                for (const [key, value] of Object.entries(state.companySettings)) {
+                                    if (form.elements[key]) form.elements[key].value = value;
+                                }
+                            }
+                        } else {
+                            companyTab.style.display = 'none';
+                        }
+                    }
                     break;
 
                 case 'user-management':
@@ -365,7 +391,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const viewId = link.dataset.view;
                 showView(viewId);
                 
-                // Mobile Menu Logic: Close on selection
                 if (window.innerWidth <= 768 && sidebar && overlay) {
                     sidebar.classList.remove('open');
                     overlay.classList.remove('active');
@@ -373,7 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // --- MOBILE MENU LOGIC ---
         if (mobileMenuBtn && sidebar && overlay) {
             mobileMenuBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -492,8 +516,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (e.target.checked) state.currentSelectionModal.tempSelections.add(e.target.dataset.id);
                     else state.currentSelectionModal.tempSelections.delete(e.target.dataset.id);
                 }
-                
-                // Handle "Select All" click inside list (if any specific logic needed)
             });
         }
         
@@ -574,12 +596,13 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'table-activity-log': renderActivityLog(); break;
             case 'table-po-viewer': renderPurchaseOrdersViewer(); break;
             case 'table-my-requests-history': renderMyRequests(); break;
+            case 'table-stock-adj-report': renderStockAdjustmentReport(); break;
+            case 'table-supplier-adj-report': renderSupplierAdjustmentReport(); break;
         }
     }
 
     // --- SUB-NAVIGATION (TABS) LISTENER ---
     function attachSubNavListeners() { 
-        Logger.debug('Attaching sub-navigation listeners...');
         document.querySelectorAll('.sub-nav').forEach(nav => { 
             if(nav.closest('#history-modal')) return;
             
@@ -590,27 +613,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const subviewId = e.target.dataset.subview; 
                 const parentView = e.target.closest('.view'); 
                 
-                if (!parentView) {
-                    Logger.error('Sub-nav clicked but no parent .view found.');
-                    return;
-                }
+                if (!parentView) return;
                 
                 Logger.info(`Sub-tab clicked: ${subviewId} in ${parentView.id}`);
 
-                // Toggle active class on buttons
                 parentView.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active')); 
                 e.target.classList.add('active'); 
                 
-                // Toggle active class on views
                 parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
                 const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
                 
                 if (subViewToShow) {
                     subViewToShow.classList.add('active');
-                    // Refresh data for this view context
                     refreshViewData(parentView.id.replace('view-','')); 
-                } else {
-                    Logger.error(`Target sub-view #subview-${subviewId} not found.`);
                 }
             }); 
         }); 
@@ -761,6 +776,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+        
+        // Company Settings Form
+        const companyForm = document.getElementById('form-company-settings');
+        if(companyForm) {
+            companyForm.addEventListener('submit', async e => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button[type="submit"]');
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
+                
+                if(await postData('updateCompanySettings', data, btn, 'Saving...')) {
+                    state.companySettings = data; // Optimistic update
+                    showToast('Company settings saved!', 'success');
+                }
+            });
+        }
 
         setupInputTableListeners('table-receive-list', 'currentReceiveList', renderReceiveListTable);
         setupInputTableListeners('table-transfer-list', 'currentTransferList', renderTransferListTable);
@@ -799,6 +830,9 @@ document.addEventListener('DOMContentLoaded', () => {
                  const data = findByKey(state.purchaseOrders, 'poId', batchId);
                  const items = (state.purchaseOrderItems || []).filter(i => i.poId === batchId);
                  if (data && items) generatePODocument({ ...data, items });
+             } else if (type === 'adjustment') {
+                 const group = state.transactions.filter(t => t.batchId === batchId);
+                 if(group.length) generateAdjustmentDocument({ ...group[0], items: group });
              } else {
                  const transactionGroup = state.transactions.filter(t => t.batchId === batchId);
                  if (transactionGroup.length > 0) {
@@ -810,6 +844,11 @@ document.addEventListener('DOMContentLoaded', () => {
                      else if (type === 'return_out') generateReturnDocument(data);
                  }
              }
+        }
+        
+        if (btn.classList.contains('btn-print-supplier-adj')) {
+            const p = findByKey(state.payments, 'paymentId', btn.dataset.id) || findByKey(state.payments, 'invoiceNumber', btn.dataset.id);
+            if(p) generatePaymentVoucher({payments:[p], ...p});
         }
         
         if (btn.classList.contains('btn-receive-transfer')) openViewTransferModal(btn.dataset.batchId);
@@ -890,13 +929,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = state.currentUser; if (!user) return;
         const userFirstName = user.Name.split(' ')[0];
         document.querySelector('.sidebar-header h1').textContent = _t('hi_user', {userFirstName});
-        const navMap = { 'dashboard': 'viewDashboard', 'operations': 'viewOperations', 'purchasing': 'viewPurchasing', 'internal-distribution': 'viewRequests', 'financials': 'viewPayments', 'reports': 'viewReports', 'stock-levels': 'viewStockLevels', 'transaction-history': 'viewTransactionHistory', 'setup': 'viewSetup', 'master-data': 'viewMasterData', 'user-management': 'manageUsers', 'backup': 'opBackupRestore', 'activity-log': 'viewActivityLog' };
+        const navMap = { 'dashboard': 'viewDashboard', 'operations': 'viewOperations', 'purchasing': 'viewPurchasing', 'internal-distribution': 'viewRequests', 'financials': 'viewPayments', 'reports': 'viewReports', 'stock-levels': 'viewStockLevels', 'transaction-history': 'viewTransactionHistory', 'setup': 'viewSetup', 'master-data': 'viewMasterData', 'user-management': 'manageUsers', 'backup': 'opBackupRestore', 'activity-log': 'viewActivityLog', 'adjustments': 'opStockAdjustment' };
         for (const [view, permission] of Object.entries(navMap)) {
             const navItem = document.querySelector(`[data-view="${view}"]`);
             if (navItem) { 
                 let hasPermission = userCan(permission);
                 if (view === 'internal-distribution') hasPermission = userCan('opRequestItems') || userCan('opApproveIssueRequest') || userCan('opApproveResupplyRequest') || userCan('viewReports');
-                if (view === 'operations') hasPermission = userCan('viewOperations') || userCan('opStockAdjustment') || userCan('opFinancialAdjustment');
+                if (view === 'operations') hasPermission = userCan('viewOperations');
+                if (view === 'adjustments') hasPermission = userCan('opStockAdjustment') || userCan('opFinancialAdjustment');
                 navItem.parentElement.style.display = hasPermission ? '' : 'none'; 
             }
         }
@@ -1226,14 +1266,13 @@ document.addEventListener('DOMContentLoaded', () => {
             existingSet = state.reportSelectedItems;
         } else if (type === 'stock-level-items') {
             data = state.items.map(i => ({id: i.code, name: i.name}));
-            // Special case for stock level report filtering, maybe use a different set or just the item list for inquiry
-            existingSet = new Set(); // Reset for this view if needed, or maintain state
+            existingSet = new Set(); 
         } else if (type === 'stock-level-branches') {
              data = state.branches.map(b => ({id: b.branchCode, name: b.branchName}));
-             existingSet = new Set(); // Reset or maintain
+             existingSet = new Set(); 
         } else if (type === 'item-inquiry') {
             data = state.items.map(i => ({id: i.code, name: i.name}));
-            existingSet = new Set(); // Single select logic implemented via click usually
+            existingSet = new Set(); 
         }
 
         // Pre-fill temp selections from existing state
@@ -1271,18 +1310,13 @@ document.addEventListener('DOMContentLoaded', () => {
             state.reportSelectedItems = new Set(set);
             document.getElementById('consumption-item-count').textContent = `${set.size} selected`;
         } else if(type === 'stock-level-items') {
-             // Filter the stock view
              const selectedItems = Array.from(set).map(id => findByKey(state.items, 'code', id));
              renderItemCentricStockView(selectedItems.length > 0 ? selectedItems : state.items);
         } else if(type === 'stock-level-branches') {
-             // We need to pass the selected branches to the renderer. 
-             // Since renderItemCentricStockView usually pulls from state.currentUser or all,
-             // we can temporarily override or pass as arg.
              const selectedBranches = Array.from(set).map(id => findByKey(state.branches, 'branchCode', id));
              renderItemCentricStockView(state.items, selectedBranches);
         } else if (type === 'item-inquiry') {
              if(set.size > 0) {
-                 // Take the first one for inquiry
                  const itemId = Array.from(set)[0];
                  const item = findByKey(state.items, 'code', itemId);
                  if(item) {
