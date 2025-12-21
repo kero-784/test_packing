@@ -1,3 +1,5 @@
+
+
 document.addEventListener('DOMContentLoaded', () => {
     Logger.info('DOM fully loaded. Starting initialization...');
 
@@ -33,19 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const editModalTitle = document.getElementById('edit-modal-title');
     const formEditRecord = document.getElementById('form-edit-record');
 
-    // --- GLOBAL HELPERS (Totalizers) ---
-    window.updateReceiveGrandTotal = () => { try { let grandTotal = 0; (state.currentReceiveList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('receive-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updateReceiveGrandTotal', e); } };
-    window.updateTransferGrandTotal = () => { try { let grandTotalQty = 0; (state.currentTransferList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); const el = document.getElementById('transfer-grand-total'); if(el) el.textContent = grandTotalQty.toFixed(2); } catch(e) { Logger.error('Error in updateTransferGrandTotal', e); } };
-    window.updateIssueGrandTotal = () => { try { let grandTotalQty = 0; (state.currentIssueList || []).forEach(item => { grandTotalQty += (parseFloat(item.quantity) || 0); }); const el = document.getElementById('issue-grand-total'); if(el) el.textContent = grandTotalQty.toFixed(2); } catch(e) { Logger.error('Error in updateIssueGrandTotal', e); } };
-    window.updatePOGrandTotal = () => { try { let grandTotal = 0; (state.currentPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('po-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updatePOGrandTotal', e); } };
-    window.updatePOEditGrandTotal = () => { try { let grandTotal = 0; (state.currentEditingPOList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('edit-po-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updatePOEditGrandTotal', e); } };
-    window.updateReturnGrandTotal = () => { try { let grandTotal = 0; (state.currentReturnList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('return-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updateReturnGrandTotal', e); } };
-
     // --- CORE INITIALIZATION ---
     function init() {
         Logger.debug('Executing init()...');
         
-        // Initialize Pagination State
         if(!state.pagination) state.pagination = {};
 
         // PWA Install Logic
@@ -111,6 +104,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showView(firstVisibleView);
         updateUserBranchDisplay();
+        
+        // Trigger badge updates immediately
         updatePendingRequestsWidget();
     };
 
@@ -169,8 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.refreshViewData = async (viewId) => {
         if (!state.currentUser) return;
-        Logger.debug(`refreshViewData: refreshing data for ${viewId}...`);
-
+        
         try {
             switch(viewId) {
                 case 'dashboard':
@@ -218,13 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if(stockAdjTab) stockAdjTab.style.display = 'none';
                         if(stockAdjRepTab) stockAdjRepTab.style.display = 'none';
                     }
-                    if(!userCan('opFinancialAdjustment')) {
-                        const suppAdjTab = document.querySelector('[data-subview="supplier-adj"]');
-                        const suppAdjRepTab = document.querySelector('[data-subview="supplier-adj-report"]');
-                        if(suppAdjTab) suppAdjTab.style.display = 'none';
-                        if(suppAdjRepTab) suppAdjRepTab.style.display = 'none';
-                    }
-
+                    
                     renderAdjustmentListTable();
                     renderStockAdjustmentReport();
                     renderSupplierAdjustmentReport();
@@ -242,10 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      
                      const branchCount = document.getElementById('consumption-branch-count');
                      if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
-                     const sectionCount = document.getElementById('consumption-section-count');
-                     if(sectionCount) sectionCount.textContent = `${state.reportSelectedSections.size} selected`;
-                     const itemCount = document.getElementById('consumption-item-count');
-                     if(itemCount) itemCount.textContent = `${state.reportSelectedItems.size} selected`;
                      break;
 
                 case 'financials':
@@ -274,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     renderItemCentricStockView();
-                    const itemInq = document.getElementById('item-inquiry-search');
                     if(document.getElementById('item-inquiry-results')) document.getElementById('item-inquiry-results').innerHTML = '';
                     break;
                     
@@ -285,19 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
                     
                     state.pagination['table-transaction-history'].page = 1;
-                    const txStartDate = document.getElementById('tx-filter-start-date');
-                    const txEndDate = document.getElementById('tx-filter-end-date');
-                    const txType = document.getElementById('tx-filter-type');
-                    const txBranch = document.getElementById('tx-filter-branch');
-                    const txSearch = document.getElementById('transaction-search');
-
-                    renderTransactionHistory({
-                        startDate: txStartDate ? txStartDate.value : null,
-                        endDate: txEndDate ? txEndDate.value : null,
-                        type: txType ? txType.value : null,
-                        branch: txBranch ? txBranch.value : null,
-                        searchTerm: txSearch ? txSearch.value : null
-                    }); 
+                    renderTransactionHistory(); 
                     break;
                 
                 case 'master-data':
@@ -376,19 +347,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NOTIFICATION BADGE UPDATE LOGIC ---
     async function updatePendingRequestsWidget() {
-        const pendingRequests = (state.itemRequests || []).filter(r => r.Status === 'Pending' && (userCan('viewAllBranches') || r.ToBranch === state.currentUser.AssignedBranchCode));
-        const reqCount = new Set(pendingRequests.map(r => r.RequestID)).size;
+        if (!state.currentUser) return;
 
+        // 1. Pending Internal Requests
+        const pendingRequests = (state.itemRequests || []).filter(r => 
+            r.Status === 'Pending' && 
+            (userCan('viewAllBranches') || String(r.ToBranch) === String(state.currentUser.AssignedBranchCode))
+        );
+        const reqCount = pendingRequests.length;
+
+        // 2. Incoming Transfers (In Transit)
         const incomingTransfers = (state.transactions || []).filter(t => 
             t.type === 'transfer_out' && 
             t.Status === 'In Transit' && 
-            (userCan('viewAllBranches') || t.toBranchCode === state.currentUser.AssignedBranchCode)
+            (userCan('viewAllBranches') || String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode))
         );
+        // Deduplicate by batchId for transfers
         const transferCount = new Set(incomingTransfers.map(t => t.batchId)).size;
 
+        // 3. Update Sidebar Badges
         updateSidebarBadge('internal-distribution', reqCount);
         updateSidebarBadge('operations', transferCount);
 
+        // 4. Update Dashboard Widget
         const widget = document.getElementById('pending-requests-widget');
         if (widget) {
             if (reqCount + transferCount > 0) {
@@ -419,8 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENER ATTACHMENT ---
     function attachEventListeners() {
-        Logger.debug('Attaching global event listeners...');
-        
         if(btnLogout) btnLogout.addEventListener('click', (e) => { e.preventDefault(); location.reload(); });
         if(globalRefreshBtn) globalRefreshBtn.addEventListener('click', reloadDataAndRefreshUI);
         
@@ -429,8 +408,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 const viewId = link.dataset.view;
                 showView(viewId);
-                
-                // Mobile Menu Logic: Close on selection
                 if (window.innerWidth <= 768 && sidebar && overlay) {
                     sidebar.classList.remove('open');
                     overlay.classList.remove('active');
@@ -439,7 +416,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // --- MOBILE MENU LOGIC ---
         if (mobileMenuBtn && sidebar && overlay) {
             mobileMenuBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -460,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         attachFormListeners();
 
-        // Search listeners using safe lookups
+        // Search listeners
         setupSearch('search-items', renderItemsTable, 'items', ['name', 'code', 'category']);
         setupSearch('search-suppliers', renderSuppliersTable, 'suppliers', ['name', 'supplierCode']);
         setupSearch('search-branches', renderBranchesTable, 'branches', ['branchName', 'branchCode']);
@@ -573,6 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
+        // Transaction Filters Logic
         ['tx-filter-start-date', 'tx-filter-end-date', 'tx-filter-type', 'tx-filter-branch', 'transaction-search'].forEach(id => {
             const el = document.getElementById(id);
             if(el) {
@@ -615,6 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         switch(tableId) {
             case 'table-transaction-history':
+                // Re-read filters to maintain state
                 const startDate = document.getElementById('tx-filter-start-date');
                 const endDate = document.getElementById('tx-filter-end-date');
                 const type = document.getElementById('tx-filter-type');
@@ -874,14 +852,12 @@ document.addEventListener('DOMContentLoaded', () => {
                   const group = state.itemRequests.filter(r => r.RequestID === batchId); // Check if it's a request ID
                   if (group.length > 0) {
                       // It's a request, find the associated transaction if approved/completed
-                      // Or generate a draft based on the request data
                       const first = group[0];
-                      // Find items
                       const items = group.map(r => ({ itemCode: r.ItemCode, quantity: r.IssuedQuantity || r.Quantity }));
                       generateRequestIssueDocument({
                           ref: first.RequestID,
                           date: first.Date,
-                          fromBranchCode: first.FromSection, // Mapping logic might differ based on your data
+                          fromBranchCode: first.FromSection, 
                           sectionCode: first.ToBranch,
                           items: items,
                           notes: first.StatusNotes
