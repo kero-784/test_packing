@@ -1,3 +1,4 @@
+
 // Global State Object
 var state = {
     currentUser: null,
@@ -37,6 +38,15 @@ var state = {
         type: null,
         tempSelections: new Set()
     },
+    // Default Pagination State (Overridden by app.js init but good for safety)
+    pagination: {
+        'table-transaction-history': { page: 1, pageSize: 20 },
+        'table-items': { page: 1, pageSize: 20 },
+        'table-suppliers': { page: 1, pageSize: 20 },
+        'table-activity-log': { page: 1, pageSize: 20 },
+        'table-po-viewer': { page: 1, pageSize: 20 },
+        'table-my-requests-history': { page: 1, pageSize: 20 }
+    }
 };
 
 var modalContext = null;
