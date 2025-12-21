@@ -1,3 +1,5 @@
+--- START OF FILE i18n.js ---
+
 const translations = {
     'en': {
         'packing_stock': 'Packing Stock',
@@ -11,8 +13,8 @@ const translations = {
         'dashboard': 'Dashboard',
         'stock_operations': 'Stock Operations',
         'purchasing': 'Purchasing',
-        'requests': 'Requests',
-        'payments': 'Payments',
+        'requests': 'Internal Distribution', // UPDATED
+        'payments': 'Financials', // UPDATED
         'reports': 'Reports',
         'stock_levels': 'Stock Levels',
         'transaction_history': 'Transaction History',
@@ -117,6 +119,7 @@ const translations = {
         'select_a_supplier': 'Select a Supplier',
         'generate': 'Generate',
         'select_a_branch': 'Select a Branch',
+        'select_branches': 'Select Branches',
         'all_items': 'All Items',
         'all_categories': 'All Categories',
         'all_branches': 'All Branches',
@@ -360,12 +363,12 @@ const translations = {
         'login': 'تسجيل الدخول',
         'signing_in': 'جاري تسجيل الدخول...',
         'hi_user': 'مرحباً، {userFirstName}',
-        'refresh_all_data': 'تحديث كل البيانات',
+        'refresh_all_data': 'تحديث البيانات',
         'dashboard': 'لوحة التحكم',
         'stock_operations': 'عمليات المخزون',
         'purchasing': 'المشتريات',
-        'requests': 'الطلبات',
-        'payments': 'المدفوعات',
+        'requests': 'التوزيع الداخلي', // UPDATED
+        'payments': 'المالية', // UPDATED
         'reports': 'التقارير',
         'stock_levels': 'مستويات المخزون',
         'transaction_history': 'سجل الحركات',
@@ -470,6 +473,7 @@ const translations = {
         'select_a_supplier': 'اختر موردًا',
         'generate': 'إنشاء',
         'select_a_branch': 'اختر فرعًا',
+        'select_branches': 'اختر الفروع',
         'all_items': 'كل الأصناف',
         'all_categories': 'كل الفئات',
         'all_branches': 'كل الفروع',
