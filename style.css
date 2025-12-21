@@ -1,4 +1,4 @@
-/* --- MODERN UI REDESIGN V3 (Mobile & PWA Optimized) --- */
+/* --- MODERN UI REDESIGN V3 (Mobile & Table Fixes) --- */
 
 :root {
     --primary-color: #4A90E2;
@@ -35,7 +35,6 @@ body {
     color: var(--text-color);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* PWA Safe Areas */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
@@ -63,7 +62,7 @@ html[dir="rtl"] body {
 
 /* --- Mobile Header & Hamburger --- */
 .mobile-header {
-    display: none; /* Hidden on Desktop */
+    display: none;
     position: fixed; top: 0; left: 0; width: 100%; height: 60px;
     background-color: var(--sidebar-bg); border-bottom: 1px solid var(--border-color);
     z-index: 900; align-items: center; padding: 0 16px; box-shadow: var(--shadow-sm);
@@ -105,7 +104,7 @@ html[dir="rtl"] body {
     padding: 32px; 
     height: 100%; 
     overflow-y: auto; 
-    overflow-x: hidden; /* Prevent horizontal scroll on body */
+    overflow-x: hidden;
 }
 .main-header { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 24px; gap: 16px;}
 #view-title { font-size: 32px; font-weight: 700; margin: 0; flex-shrink: 0; }
@@ -142,7 +141,7 @@ html[dir="rtl"] body {
     margin-bottom: 24px; 
     box-shadow: var(--shadow-md); 
     max-width: 100%;
-    overflow: hidden; /* Contains overflowing children */
+    overflow: hidden; 
     box-sizing: border-box;
 }
 .card h2 { font-size: 20px; font-weight: 600; margin: 0 0 24px 0; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; }
@@ -169,76 +168,48 @@ html[dir="rtl"] body {
 .report-selection-control button { flex-shrink: 0; }
 .report-selection-control span { font-size: 14px; color: var(--text-light-color); font-style: italic; flex-shrink: 0; }
 
-/* --- Table & Scroll Fixes (CRITICAL) --- */
+/* --- Table & Scroll Fixes (Aggressive) --- */
 
-/* 1. Scrollable Container for Tables */
+/* Wrapper for ALL tables to handle overflow */
+.table-responsive, 
 .report-area, 
-/* Target tables directly inside cards to ensure they scroll */
-.card table, 
-#receive-list-card table,
-#issue-list-card table,
-#transfer-list-card table,
-#return-list-card table {
+.card .report-area {
     display: block;
     width: 100%;
-    overflow-x: auto !important; /* Force scrollbar */
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     margin-top: 15px;
-    border: 1px solid var(--border-color); /* Add border to container */
+    border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     background: #fff;
-    white-space: nowrap; /* Prevent wrapping initially */
-    padding-bottom: 5px; /* Space for scrollbar */
+    white-space: nowrap; /* Forces content to stay on one line, triggering scroll */
 }
 
-/* 2. Remove double borders if wrapped */
-.report-area table {
-    margin-top: 0;
-    border: none;
-}
-
-/* 3. Force Table Width */
+/* Force Table to be large enough to trigger scroll */
 table {
     width: 100%;
+    min-width: 800px; /* Forces horizontal scroll on phones */
     border-collapse: collapse;
-    min-width: 700px !important; /* Force min width to trigger scroll on mobile */
-    table-layout: fixed; /* Better performance */
 }
 
-/* 4. Cells */
+/* Table Cells */
 th, td {
     padding: 12px 10px;
     text-align: left;
     vertical-align: middle;
     border-bottom: 1px solid var(--border-color);
-    white-space: normal; /* Allow text wrapping inside fixed columns */
-    word-wrap: break-word;
 }
-
-/* 5. Column Widths (Prevent Squishing) */
-th:nth-child(1), td:nth-child(1) { width: 90px; } /* Code */
-th:nth-child(2), td:nth-child(2) { width: 160px; } /* Name */
-th:nth-child(3), td:nth-child(3) { width: 100px; } /* Qty/Unit */
-
-th { 
-    font-size: 13px; 
-    font-weight: 600; 
-    color: var(--text-light-color); 
-    background-color: #F8F9FA; 
-    text-transform: uppercase; 
-    letter-spacing: 0.5px; 
-    white-space: nowrap; /* Keep headers single line */
-}
+th { font-size: 13px; font-weight: 600; color: var(--text-light-color); background-color: var(--bg-color); text-transform: uppercase; letter-spacing: 0.5px; }
 td { font-size: 14px; }
 td button.btn-edit { width: 100%; text-align: center; justify-content: center;}
 tbody tr { transition: background-color 0.15s ease-in-out; }
 tbody tr:hover { background-color: #f7faff; }
 
-/* 6. Inputs inside Tables */
+/* Fix Inputs inside tables */
 table input.table-input {
     width: 100%;
     min-width: 80px; 
-    max-width: 100%; 
+    max-width: 120px; 
     padding: 8px;
     font-size: 14px;
     box-sizing: border-box;
@@ -247,11 +218,13 @@ table input.table-input {
     border-radius: 4px;
 }
 
-/* 7. Scrollbar Styling */
-.card table::-webkit-scrollbar, .report-area::-webkit-scrollbar {
+/* Scrollbar Styling */
+.card table::-webkit-scrollbar, .report-area::-webkit-scrollbar, 
+.sub-nav::-webkit-scrollbar, .table-responsive::-webkit-scrollbar {
     height: 6px;
 }
-.card table::-webkit-scrollbar-thumb, .report-area::-webkit-scrollbar-thumb {
+.card table::-webkit-scrollbar-thumb, .report-area::-webkit-scrollbar-thumb,
+.sub-nav::-webkit-scrollbar-thumb, .table-responsive::-webkit-scrollbar-thumb {
     background-color: #ccc;
     border-radius: 4px;
 }
@@ -419,28 +392,14 @@ html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
         padding: 24px;
     }
 
-    .sub-nav {
-        overflow-x: auto;
-        white-space: nowrap;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 5px;
+    /* Report Controls on Mobile */
+    .report-generator-controls {
+        flex-direction: column;
+        align-items: stretch;
     }
     
     .card {
         padding: 16px;
-        /* Mobile specific overflow fix */
-        max-width: 100vw;
-        box-sizing: border-box;
-    }
-
-    /* Ensure scrollable containers span full width */
-    .report-area, .card table {
-        width: calc(100% + 32px); /* Stretch to screen edges */
-        margin-left: -16px;
-        margin-right: -16px;
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
     }
     
     .grid, .form-grid {
@@ -449,5 +408,11 @@ html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
     
     .main-header {
         display: none; /* Hide Desktop Header */
+    }
+
+    /* Force the scrollable container to fit width */
+    .table-responsive, .report-area {
+        width: 100%;
+        max-width: 100%;
     }
 }
