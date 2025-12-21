@@ -1,8 +1,9 @@
 
 
+
+
 window.printReport = function(elementId) {
     // Find the specific content we want to print
-    // Tries to find a specific printable class, or falls back to the container
     const reportContent = document.querySelector(`#${elementId} .printable-document`) || 
                           document.querySelector(`#${elementId} .report-area table`)?.parentElement ||
                           document.getElementById(elementId);
@@ -11,22 +12,30 @@ window.printReport = function(elementId) {
         const printArea = document.getElementById('print-area');
         printArea.innerHTML = '';
         
-        // If it's just a table or raw content, wrap it for styling
-        if(reportContent.tagName === 'TABLE' || reportContent.classList.contains('report-area')) {
+        // Clone the node deeply
+        const contentClone = reportContent.cloneNode(true);
+        
+        // If it's a raw table or report area, wrap it to match styles
+        if(contentClone.tagName === 'TABLE' || contentClone.classList.contains('report-area')) {
              const wrapper = document.createElement('div');
              wrapper.className = 'printable-document card';
-             // Clone deep to get all children including inputs/values
-             wrapper.appendChild(reportContent.cloneNode(true));
+             wrapper.style.border = 'none'; // Clean for print
+             wrapper.style.boxShadow = 'none';
+             wrapper.appendChild(contentClone);
              printArea.appendChild(wrapper);
         } else {
-             printArea.appendChild(reportContent.cloneNode(true));
+             // Ensure it has the class for styling if missing
+             if (!contentClone.classList.contains('printable-document')) {
+                 contentClone.classList.add('printable-document');
+             }
+             printArea.appendChild(contentClone);
         }
 
-        // Small delay to ensure styles render before print dialog
-        setTimeout(() => window.print(), 200);
+        // Delay to allow DOM update before opening print dialog
+        setTimeout(() => window.print(), 500);
     } else {
         console.error(`Could not find content to print in #${elementId}`);
-        alert("Error: Report content not found.");
+        showToast("Error: Report content not found.", "error");
     }
 };
 
@@ -39,8 +48,9 @@ function generateId(prefix) {
 }
 
 function printContent(content) { 
-    document.getElementById('print-area').innerHTML = content; 
-    setTimeout(() => window.print(), 200); 
+    const printArea = document.getElementById('print-area');
+    printArea.innerHTML = content; 
+    setTimeout(() => window.print(), 500); 
 }
 
 function showToast(message, type = 'success') {
@@ -61,13 +71,13 @@ function showToast(message, type = 'success') {
     }, 3500);
 }
 
-// Updated to accept custom loading text
+// Helper to change button text/state during async operations
 function setButtonLoading(isLoading, buttonEl, loadingText = 'Loading...') {
     if (!buttonEl) return;
     
     if (isLoading) {
         buttonEl.disabled = true;
-        // Save original text to restore later
+        // Save original text to restore later, only if not already saved
         if (!buttonEl.dataset.originalText) {
             buttonEl.dataset.originalText = buttonEl.innerHTML;
         }
