@@ -1,5 +1,3 @@
-
-
 // ui-renderers.js
 
 // --- HELPER FUNCTIONS ---
@@ -197,6 +195,47 @@ function renderAdjustmentListTable() {
         });
     }
     tbody.innerHTML = html;
+}
+
+function renderStockAdjustmentReport() {
+    const table = document.getElementById('table-stock-adj-report');
+    if(!table) return;
+    
+    // Filter transactions for adjustments
+    const adjData = state.transactions.filter(t => t.type === 'adjustment_in' || t.type === 'adjustment_out' || t.type === 'stock_adjustment').reverse();
+    
+    const settings = state.pagination['table-stock-adj-report'];
+    const totalItems = adjData.length;
+    const start = (settings.page - 1) * settings.pageSize;
+    const paginatedData = adjData.slice(start, start + settings.pageSize);
+
+    let html = '';
+    paginatedData.forEach(t => {
+        const item = findByKey(state.items, 'code', t.itemCode);
+        const branch = findByKey(state.branches, 'branchCode', t.fromBranchCode);
+        const typeDisplay = t.type === 'adjustment_in' ? 'Increase (+)' : 'Decrease (-)';
+        html += `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.ref || t.batchId}</td><td>${branch?.branchName || t.fromBranchCode}</td><td>${item?.name || t.itemCode}</td><td>${parseFloat(t.quantity).toFixed(2)}</td><td>${typeDisplay}</td><td>${t.notes || ''}</td><td><button class="secondary small btn-view-tx" data-batch-id="${t.batchId}" data-type="adjustment">${_t('view_print')}</button></td></tr>`;
+    });
+    updateTableHTML('table-stock-adj-report', html, renderPaginationControls('table-stock-adj-report', totalItems));
+}
+
+function renderSupplierAdjustmentReport() {
+    const table = document.getElementById('table-supplier-adj-report');
+    if(!table) return;
+    
+    const adjData = state.payments.filter(p => p.method === 'OPENING BALANCE').reverse();
+    
+    const settings = state.pagination['table-supplier-adj-report'];
+    const totalItems = adjData.length;
+    const start = (settings.page - 1) * settings.pageSize;
+    const paginatedData = adjData.slice(start, start + settings.pageSize);
+
+    let html = '';
+    paginatedData.forEach(p => {
+        const supplier = findByKey(state.suppliers, 'supplierCode', p.supplierCode);
+        html += `<tr><td>${new Date(p.date).toLocaleDateString()}</td><td>${p.invoiceNumber}</td><td>${supplier?.name || p.supplierCode}</td><td>${parseFloat(p.amount).toFixed(2)}</td><td>${p.method}</td><td><button class="secondary small btn-print-supplier-adj" data-id="${p.paymentId || p.ref}">Print</button></td></tr>`;
+    });
+    updateTableHTML('table-supplier-adj-report', html, renderPaginationControls('table-supplier-adj-report', totalItems));
 }
 
 function renderItemCentricStockView(itemsToRender = state.items, overrideBranches = null) {
@@ -662,11 +701,14 @@ function renderUnifiedConsumptionReport() {
 
 // Helper to build the common header structure
 const getDocumentHeader = (title, id, status = '') => {
+    const info = state.companySettings || {};
     return `
     <div class="doc-header">
         <div class="doc-brand">
-            <h1>PACKING STOCK</h1>
-            <p>Warehouse Management System</p>
+            <h1>${info.CompanyName || 'PACKING STOCK'}</h1>
+            <p>${info.Address || ''}</p>
+            <p>${info.TaxID ? 'Tax ID: ' + info.TaxID : ''} ${info.CRNumber ? '| CR: ' + info.CRNumber : ''}</p>
+            <p>${info.Phone || ''} ${info.Email || ''}</p>
         </div>
         <div class="doc-title">
             <h2>${title}</h2>
@@ -1091,6 +1133,35 @@ const generateRequestIssueDocument = (data) => {
             <p><em>This is a draft generated from an Item Request approval.</em></p>
             ${data.notes ? `<strong>Notes:</strong> ${data.notes}` : ''}
         </div>
+    </div>`;
+    printContent(content);
+};
+
+const generateAdjustmentDocument = (data) => {
+    const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
+    
+    let itemsHtml = '';
+    data.items.forEach(item => {
+        const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
+        const typeDisplay = item.type === 'adjustment_in' ? 'Increase (+)' : 'Decrease (-)';
+        itemsHtml += `<tr>
+            <td>${item.itemCode}</td>
+            <td>${fullItem.name}</td>
+            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
+            <td style="text-align:center">${typeDisplay}</td>
+        </tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Stock Adjustment Note', data.batchId)}
+        <div class="doc-info-grid">
+            <div class="info-col"><span class="info-label">Branch</span><div class="info-value"><strong>${branch.branchName}</strong></div></div>
+            <div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr><tr><td class="label">Ref:</td><td class="val">${data.ref}</td></tr></table></div>
+        </div>
+        <div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:center">Type</th></tr></thead><tbody>${itemsHtml}</tbody></table></div>
+        <div class="doc-notes"><strong>Notes:</strong> ${data.notes || 'None'}</div>
+        <div class="doc-signatures"><div class="signature-box">Adjusted By</div><div class="signature-box">Approved By</div></div>
     </div>`;
     printContent(content);
 };
