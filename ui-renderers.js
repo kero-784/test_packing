@@ -8,111 +8,118 @@ function getVisibleBranchesForCurrentUser() {
     return [];
 }
 
+// Helper to safely update table HTML and wrap in scroll container
+function updateTableHTML(tableId, html) {
+    const tableElement = document.getElementById(tableId);
+    if (!tableElement) return;
+    
+    // Check if parent is already .table-responsive, if not, wrap it
+    if (!tableElement.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        tableElement.parentNode.insertBefore(wrapper, tableElement);
+        wrapper.appendChild(tableElement);
+    }
+    
+    const tbody = tableElement.querySelector('tbody');
+    if(tbody) tbody.innerHTML = html;
+}
+
 // --- TABLE RENDERERS ---
 function renderItemsTable(data = state.items) {
-    const table = document.getElementById('table-items');
-    if (!table) return;
-    const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_found')}</td></tr>`;
-        return;
+        html = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_found')}</td></tr>`;
+    } else {
+        const canEdit = userCan('editItem');
+        data.forEach(item => {
+            html += `<tr><td>${item.code}</td><td>${item.name}</td><td>${_t(item.category?.toLowerCase()) || item.category || 'N/A'}</td><td>${item.unit}</td><td>${(parseFloat(item.cost) || 0).toFixed(2)} EGP</td><td><div class="action-buttons"><button class="secondary small btn-edit" data-type="item" data-id="${item.code}" ${!canEdit ? 'disabled' : ''}>${_t('edit')}</button><button class="secondary small btn-history" data-type="item" data-id="${item.code}">${_t('history')}</button></div></td></tr>`;
+        });
     }
-    const canEdit = userCan('editItem');
-    data.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${item.code}</td><td>${item.name}</td><td>${_t(item.category?.toLowerCase()) || item.category || 'N/A'}</td><td>${item.unit}</td><td>${(parseFloat(item.cost) || 0).toFixed(2)} EGP</td><td><div class="action-buttons"><button class="secondary small btn-edit" data-type="item" data-id="${item.code}" ${!canEdit ? 'disabled' : ''}>${_t('edit')}</button><button class="secondary small btn-history" data-type="item" data-id="${item.code}">${_t('history')}</button></div></td>`;
-        tbody.appendChild(tr);
-    });
+    updateTableHTML('table-items', html);
 }
 
 function renderSuppliersTable(data = state.suppliers) {
-    const table = document.getElementById('table-suppliers');
-    if (!table) return;
-    const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${_t('no_suppliers_found')}</td></tr>`;
-        return;
+        html = `<tr><td colspan="5" style="text-align:center;">${_t('no_suppliers_found')}</td></tr>`;
+    } else {
+        const financials = calculateSupplierFinancials();
+        const canEdit = userCan('editSupplier');
+        data.forEach(supplier => {
+            const balance = financials[supplier.supplierCode]?.balance || 0;
+            html += `<tr><td>${supplier.supplierCode || ''}</td><td>${supplier.name}</td><td>${supplier.contact}</td><td>${balance.toFixed(2)} EGP</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="supplier" data-id="${supplier.supplierCode}">${_t('edit')}</button>`: 'N/A'}</td></tr>`;
+        });
     }
-    const financials = calculateSupplierFinancials();
-    const canEdit = userCan('editSupplier');
-    data.forEach(supplier => {
-        const balance = financials[supplier.supplierCode]?.balance || 0;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${supplier.supplierCode || ''}</td><td>${supplier.name}</td><td>${supplier.contact}</td><td>${balance.toFixed(2)} EGP</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="supplier" data-id="${supplier.supplierCode}">${_t('edit')}</button>`: 'N/A'}</td>`;
-        tbody.appendChild(tr);
-    });
+    updateTableHTML('table-suppliers', html);
 }
 
 function renderBranchesTable(data = state.branches) {
-    const table = document.getElementById('table-branches');
-    if (!table) return;
-    const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${_t('no_branches_found')}</td></tr>`;
-        return;
+        html = `<tr><td colspan="3" style="text-align:center;">${_t('no_branches_found')}</td></tr>`;
+    } else {
+        const canEdit = userCan('editBranch');
+        data.forEach(branch => {
+            html += `<tr><td>${branch.branchCode || ''}</td><td>${branch.branchName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="branch" data-id="${branch.branchCode}">${_t('edit')}</button>`: 'N/A'}</td></tr>`;
+        });
     }
-    const canEdit = userCan('editBranch');
-    data.forEach(branch => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${branch.branchCode || ''}</td><td>${branch.branchName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="branch" data-id="${branch.branchCode}">${_t('edit')}</button>`: 'N/A'}</td>`;
-        tbody.appendChild(tr);
-    });
+    updateTableHTML('table-branches', html);
 }
 
 function renderSectionsTable(data = state.sections) {
-    const table = document.getElementById('table-sections');
-    if (!table) return;
-    const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${_t('no_sections_found')}</td></tr>`;
-        return;
+        html = `<tr><td colspan="3" style="text-align:center;">${_t('no_sections_found')}</td></tr>`;
+    } else {
+        const canEdit = userCan('editSection');
+        data.forEach(section => {
+            html += `<tr><td>${section.sectionCode || ''}</td><td>${section.sectionName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="section" data-id="${section.sectionCode}">${_t('edit')}</button>`: 'N/A'}</td></tr>`;
+        });
     }
-    const canEdit = userCan('editSection');
-    data.forEach(section => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${section.sectionCode || ''}</td><td>${section.sectionName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="section" data-id="${section.sectionCode}">${_t('edit')}</button>`: 'N/A'}</td>`;
-        tbody.appendChild(tr);
-    });
+    updateTableHTML('table-sections', html);
 }
 
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
-    if (!table) return; // Guard clause
-    const tbody = table.querySelector('tbody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    if (!list || list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${columnsConfig.length + 1}" style="text-align:center;">${_t(emptyMessage)}</td></tr>`;
-        if (totalizerFn) totalizerFn();
-        return;
+    if (!table) return;
+    
+    // Ensure wrapper
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
     }
-    const stock = calculateStockLevels();
-    list.forEach((item, index) => {
-        const tr = document.createElement('tr');
-        let cellsHtml = '';
-        columnsConfig.forEach(col => {
-            let content = '';
-            const fromBranchEl = document.getElementById(col.branchSelectId);
-            const fromBranch = fromBranchEl ? fromBranchEl.value : null;
-            const availableStock = (stock[fromBranch]?.[item.itemCode]?.quantity || 0);
-            switch (col.type) {
-                case 'text': content = item[col.key]; break;
-                case 'number_input': content = `<input type="number" class="table-input" value="${item[col.key] || ''}" min="${col.min || 0.01}" ${col.maxKey ? `max="${availableStock}"` : ''} step="${col.step || 0.01}" data-index="${index}" data-field="${col.key}">`; break;
-                case 'cost_input': content = `<input type="number" class="table-input" value="${(item.cost || 0).toFixed(2)}" min="0" step="0.01" data-index="${index}" data-field="cost">`; break;
-                case 'calculated': content = `<span>${col.calculator(item)}</span>`; break;
-                case 'available_stock': content = availableStock.toFixed(2); break;
-            }
-            cellsHtml += `<td>${content}</td>`;
+
+    const tbody = table.querySelector('tbody');
+    let html = '';
+    
+    if (!list || list.length === 0) {
+        html = `<tr><td colspan="${columnsConfig.length + 1}" style="text-align:center;">${_t(emptyMessage)}</td></tr>`;
+    } else {
+        const stock = calculateStockLevels();
+        list.forEach((item, index) => {
+            let cellsHtml = '';
+            columnsConfig.forEach(col => {
+                let content = '';
+                const fromBranchEl = document.getElementById(col.branchSelectId);
+                const fromBranch = fromBranchEl ? fromBranchEl.value : null;
+                const availableStock = (stock[fromBranch]?.[item.itemCode]?.quantity || 0);
+                switch (col.type) {
+                    case 'text': content = item[col.key]; break;
+                    case 'number_input': content = `<input type="number" class="table-input" value="${item[col.key] || ''}" min="${col.min || 0.01}" ${col.maxKey ? `max="${availableStock}"` : ''} step="${col.step || 0.01}" data-index="${index}" data-field="${col.key}">`; break;
+                    case 'cost_input': content = `<input type="number" class="table-input" value="${(item.cost || 0).toFixed(2)}" min="0" step="0.01" data-index="${index}" data-field="cost">`; break;
+                    case 'calculated': content = `<span>${col.calculator(item)}</span>`; break;
+                    case 'available_stock': content = availableStock.toFixed(2); break;
+                }
+                cellsHtml += `<td>${content}</td>`;
+            });
+            html += `<tr>${cellsHtml}<td><button class="danger small" data-index="${index}">X</button></td></tr>`;
         });
-        cellsHtml += `<td><button class="danger small" data-index="${index}">X</button></td>`;
-        tr.innerHTML = cellsHtml;
-        tbody.appendChild(tr);
-    });
+    }
+    
+    tbody.innerHTML = html;
     if (totalizerFn) totalizerFn();
 };
 
@@ -127,25 +134,33 @@ function renderRequestListTable() { renderDynamicListTable('table-request-list',
 function renderAdjustmentListTable() {
     const table = document.getElementById('table-adjustment-list');
     if (!table) return;
-    const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
-    if (!state.currentAdjustmentList || state.currentAdjustmentList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_for_adjustment')}</td></tr>`;
-        return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
     }
-    const stock = calculateStockLevels();
-    const branchCodeEl = document.getElementById('adjustment-branch');
-    const branchCode = branchCodeEl ? branchCodeEl.value : null;
+    
+    const tbody = table.querySelector('tbody');
+    let html = '';
+    if (!state.currentAdjustmentList || state.currentAdjustmentList.length === 0) {
+        html = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_for_adjustment')}</td></tr>`;
+    } else {
+        const stock = calculateStockLevels();
+        const branchCodeEl = document.getElementById('adjustment-branch');
+        const branchCode = branchCodeEl ? branchCodeEl.value : null;
 
-    state.currentAdjustmentList.forEach((item, index) => {
-        const systemQty = (branchCode && stock[branchCode]?.[item.itemCode]?.quantity) || 0;
-        const physicalCount = typeof item.physicalCount !== 'undefined' ? item.physicalCount : '';
-        const adjustment = physicalCount - systemQty;
-        item.physicalCount = physicalCount;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${item.itemCode}</td><td>${item.itemName}</td><td>${systemQty.toFixed(2)}</td><td><input type="number" class="table-input" value="${physicalCount}" min="0" step="0.01" data-index="${index}" data-field="physicalCount"></td><td style="font-weight: bold; color: ${adjustment > 0 ? 'var(--secondary-color)' : (adjustment < 0 ? 'var(--danger-color)' : 'inherit')}">${adjustment.toFixed(2)}</td><td><button class="danger small" data-index="${index}">X</button></td>`;
-        tbody.appendChild(tr);
-    });
+        state.currentAdjustmentList.forEach((item, index) => {
+            const systemQty = (branchCode && stock[branchCode]?.[item.itemCode]?.quantity) || 0;
+            const physicalCount = typeof item.physicalCount !== 'undefined' ? item.physicalCount : '';
+            const adjustment = physicalCount - systemQty;
+            item.physicalCount = physicalCount;
+            
+            html += `<tr><td>${item.itemCode}</td><td>${item.itemName}</td><td>${systemQty.toFixed(2)}</td><td><input type="number" class="table-input" value="${physicalCount}" min="0" step="0.01" data-index="${index}" data-field="physicalCount"></td><td style="font-weight: bold; color: ${adjustment > 0 ? 'var(--secondary-color)' : (adjustment < 0 ? 'var(--danger-color)' : 'inherit')}">${adjustment.toFixed(2)}</td><td><button class="danger small" data-index="${index}">X</button></td></tr>`;
+        });
+    }
+    tbody.innerHTML = html;
 }
 
 function renderItemCentricStockView(itemsToRender = state.items) {
@@ -153,7 +168,7 @@ function renderItemCentricStockView(itemsToRender = state.items) {
     if (!container) return;
     const stockByBranch = calculateStockLevels();
     const branchesToDisplay = getVisibleBranchesForCurrentUser();
-    let tableHTML = `<table id="table-stock-levels-by-item"><thead><tr><th>${_t('table_h_code')}</th><th>${_t('table_h_name')}</th>`;
+    let tableHTML = `<div class="table-responsive"><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('table_h_name')}</th>`;
     branchesToDisplay.forEach(b => { tableHTML += `<th>${b.branchName}</th>` });
     tableHTML += `<th>${_t('table_h_total')}</th></tr></thead><tbody>`;
     itemsToRender.forEach(item => {
@@ -166,7 +181,7 @@ function renderItemCentricStockView(itemsToRender = state.items) {
         });
         tableHTML += `<td><strong>${total.toFixed(2)}</strong></td></tr>`;
     });
-    tableHTML += `</tbody></table>`;
+    tableHTML += `</tbody></table></div>`;
     container.innerHTML = tableHTML;
 }
 
@@ -182,7 +197,7 @@ function renderItemInquiry(searchTerm) {
     let html = '';
     const branchesToDisplay = getVisibleBranchesForCurrentUser();
     filteredItems.slice(0, 10).forEach(item => {
-        html += `<h4>${item.name} (${item.code})</h4><table><thead><tr><th>${_t('branch')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_value')}</th></tr></thead><tbody>`;
+        html += `<h4>${item.name} (${item.code})</h4><div class="table-responsive"><table><thead><tr><th>${_t('branch')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_value')}</th></tr></thead><tbody>`;
         let found = false;
         let totalQty = 0;
         let totalValue = 0;
@@ -201,7 +216,7 @@ function renderItemInquiry(searchTerm) {
         } else {
             html += `<tr style="font-weight:bold; background-color: var(--bg-color);"><td>${_t('table_h_total')}</td><td>${totalQty.toFixed(2)}</td><td>${totalValue.toFixed(2)} EGP</td></tr>`
         }
-        html += `</tbody></table><hr>`;
+        html += `</tbody></table></div><hr>`;
     });
     resultsContainer.innerHTML = html;
 }
@@ -217,8 +232,16 @@ function renderPaymentList() {
     const supplierInvoices = calculateSupplierFinancials()[supplierCode]?.invoices;
     const table = document.getElementById('table-payment-list');
     if (!table) return;
+
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+    
     const tableBody = table.querySelector('tbody');
-    tableBody.innerHTML = '';
+    let html = '';
     let total = 0;
     
     if (state.invoiceModalSelections.size === 0) { container.style.display = 'none'; return; }
@@ -228,10 +251,9 @@ function renderPaymentList() {
         if (!invoice) return;
         const balance = invoice.balance;
         total += balance;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${invoice.number}</td><td>${balance.toFixed(2)} EGP</td><td><input type="number" class="table-input payment-amount-input" data-invoice="${invoice.number}" value="${balance.toFixed(2)}" step="0.01" min="0" max="${balance.toFixed(2)}" style="max-width: 150px;"></td>`;
-        tableBody.appendChild(tr);
+        html += `<tr><td>${invoice.number}</td><td>${balance.toFixed(2)} EGP</td><td><input type="number" class="table-input payment-amount-input" data-invoice="${invoice.number}" value="${balance.toFixed(2)}" step="0.01" min="0" max="${balance.toFixed(2)}" style="max-width: 150px;"></td></tr>`;
     });
+    tableBody.innerHTML = html;
     const totalEl = document.getElementById('payment-total-amount');
     if(totalEl) totalEl.textContent = `${total.toFixed(2)} EGP`;
     container.style.display = 'block';
@@ -243,8 +265,15 @@ function renderPendingTransfers() {
     
     if(!container || !table) return;
     
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     
     const groupedTransfers = {};
     (state.transactions || []).filter(t => t.type === 'transfer_out' && t.Status === 'In Transit').forEach(t => {
@@ -263,19 +292,26 @@ function renderPendingTransfers() {
     }
     
     visibleTransfers.forEach(t => {
-        const tr = document.createElement('tr');
         const fromBranch = findByKey(state.branches, 'branchCode', t.fromBranchCode)?.branchName || t.fromBranchCode;
-        tr.innerHTML = `<td>${new Date(t.date).toLocaleString()}</td><td>${fromBranch}</td><td>${t.ref}</td><td>${t.items.length}</td><td><button class="primary small btn-receive-transfer" data-batch-id="${t.batchId}">${_t('view_confirm')}</button></td>`;
-        tbody.appendChild(tr);
+        html += `<tr><td>${new Date(t.date).toLocaleString()}</td><td>${fromBranch}</td><td>${t.ref}</td><td>${t.items.length}</td><td><button class="primary small btn-receive-transfer" data-batch-id="${t.batchId}">${_t('view_confirm')}</button></td></tr>`;
     });
+    tbody.innerHTML = html;
     container.style.display = 'block';
 }
 
 function renderInTransitReport() {
     const table = document.getElementById('table-in-transit');
     if(!table) return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     const groupedTransfers = {};
     (state.transactions || []).filter(t => t.type === 'transfer_out').forEach(t => {
         if (!groupedTransfers[t.batchId]) groupedTransfers[t.batchId] = { ...t, items: [] };
@@ -284,36 +320,50 @@ function renderInTransitReport() {
     const visibleTransfers = Object.values(groupedTransfers).filter(t => userCan('viewAllBranches') || t.toBranchCode === state.currentUser.AssignedBranchCode || t.fromBranchCode === state.currentUser.AssignedBranchCode);
     
     visibleTransfers.forEach(t => {
-        const tr = document.createElement('tr');
         const fromBranch = findByKey(state.branches, 'branchCode', t.fromBranchCode)?.branchName || t.fromBranchCode;
         const toBranch = findByKey(state.branches, 'branchCode', t.toBranchCode)?.branchName || t.toBranchCode;
         const canManage = (userCan('viewAllBranches') || t.fromBranchCode === state.currentUser.AssignedBranchCode) && t.Status === 'In Transit';
         const actions = canManage ? `<div class="action-buttons"><button class="secondary small btn-edit-transfer" data-batch-id="${t.batchId}">${_t('edit')}</button><button class="danger small btn-cancel-transfer" data-batch-id="${t.batchId}">${_t('cancel')}</button></div>` : 'N/A';
-        tr.innerHTML = `<td>${new Date(t.date).toLocaleString()}</td><td>${fromBranch}</td><td>${toBranch}</td><td>${t.ref}</td><td>${t.items.length}</td><td><span class="status-tag status-${t.Status.toLowerCase().replace(/ /g,'')}">${_t('status_' + t.Status.toLowerCase().replace(/ /g, ''))}</span></td><td>${actions}</td>`;
-        tbody.appendChild(tr);
+        html += `<tr><td>${new Date(t.date).toLocaleString()}</td><td>${fromBranch}</td><td>${toBranch}</td><td>${t.ref}</td><td>${t.items.length}</td><td><span class="status-tag status-${t.Status.toLowerCase().replace(/ /g,'')}">${_t('status_' + t.Status.toLowerCase().replace(/ /g, ''))}</span></td><td>${actions}</td></tr>`;
     });
+    tbody.innerHTML = html;
 }
 
 function renderPurchaseOrdersViewer() {
     const table = document.getElementById('table-po-viewer');
     if(!table) return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     (state.purchaseOrders || []).slice().reverse().forEach(po => {
         const supplier = findByKey(state.suppliers, 'supplierCode', po.supplierCode);
         const items = (state.purchaseOrderItems || []).filter(item => item.poId === po.poId);
-        const tr = document.createElement('tr');
         const canEditPO = po.Status === 'Pending Approval' && userCan('opCreatePO');
-        tr.innerHTML = `<td>${po.poId}</td><td>${new Date(po.date).toLocaleDateString()}</td><td>${supplier?.name || po.supplierCode}</td><td>${items.length}</td><td>${(parseFloat(po.totalValue) || 0).toFixed(2)} EGP</td><td><span class="status-tag status-${(po.Status || 'pending').toLowerCase().replace(/ /g,'')}">${po.Status}</span></td><td><div class="action-buttons"><button class="secondary small btn-view-tx" data-batch-id="${po.poId}" data-type="po">${_t('view_print')}</button>${canEditPO ? `<button class="secondary small btn-edit-po" data-po-id="${po.poId}">${_t('edit')}</button>` : ''}</div></td>`;
-        tbody.appendChild(tr);
+        html += `<tr><td>${po.poId}</td><td>${new Date(po.date).toLocaleDateString()}</td><td>${supplier?.name || po.supplierCode}</td><td>${items.length}</td><td>${(parseFloat(po.totalValue) || 0).toFixed(2)} EGP</td><td><span class="status-tag status-${(po.Status || 'pending').toLowerCase().replace(/ /g,'')}">${po.Status}</span></td><td><div class="action-buttons"><button class="secondary small btn-view-tx" data-batch-id="${po.poId}" data-type="po">${_t('view_print')}</button>${canEditPO ? `<button class="secondary small btn-edit-po" data-po-id="${po.poId}">${_t('edit')}</button>` : ''}</div></td></tr>`;
     });
+    tbody.innerHTML = html;
 }
 
 function renderPendingFinancials() {
     const table = document.getElementById('table-pending-financial-approval');
     if(!table) return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+    
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     const pendingPOs = (state.purchaseOrders || []).filter(po => po.Status === 'Pending Approval');
     const pendingReceivesGroups = {};
     (state.transactions || []).filter(t => t.type === 'receive' && (t.isApproved === false || String(t.isApproved).toUpperCase() === 'FALSE')).forEach(t => {
@@ -325,17 +375,24 @@ function renderPendingFinancials() {
     let allPending = [ ...pendingPOs.map(po => ({...po, txType: 'po', ref: po.poId, value: po.totalValue, details: `PO for ${findByKey(state.suppliers, 'supplierCode', po.supplierCode)?.name || 'N/A'}`})), ...Object.values(pendingReceivesGroups).map(rcv => ({...rcv, value: rcv.totalValue})) ];
     if (allPending.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${_t('no_pending_financial_approval')}</td></tr>`; return; }
     allPending.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${new Date(item.date).toLocaleDateString()}</td><td>${_t(item.txType)}</td><td>${item.ref}</td><td>${item.details}</td><td>${(parseFloat(item.value) || 0).toFixed(2)} EGP</td><td><div class="action-buttons"><button class="primary small btn-approve-financial" data-id="${item.txType === 'po' ? item.poId : item.batchId}" data-type="${item.txType}">${_t('approve')}</button><button class="danger small btn-reject-financial" data-id="${item.txType === 'po' ? item.poId : item.batchId}" data-type="${item.txType}">${_t('reject')}</button></div></td>`;
-        tbody.appendChild(tr);
+        html += `<tr><td>${new Date(item.date).toLocaleDateString()}</td><td>${_t(item.txType)}</td><td>${item.ref}</td><td>${item.details}</td><td>${(parseFloat(item.value) || 0).toFixed(2)} EGP</td><td><div class="action-buttons"><button class="primary small btn-approve-financial" data-id="${item.txType === 'po' ? item.poId : item.batchId}" data-type="${item.txType}">${_t('approve')}</button><button class="danger small btn-reject-financial" data-id="${item.txType === 'po' ? item.poId : item.batchId}" data-type="${item.txType}">${_t('reject')}</button></div></td></tr>`;
     });
+    tbody.innerHTML = html;
 }
 
 function renderTransactionHistory(filters = {}) {
     const table = document.getElementById('table-transaction-history');
     if(!table) return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+    
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     let allTx = [...state.transactions], allPo = [...state.purchaseOrders];
     if (!userCan('viewAllBranches')) { const branchCode = state.currentUser.AssignedBranchCode; if (branchCode) { allTx = allTx.filter(t => String(t.branchCode) === branchCode || String(t.fromBranchCode) === branchCode || String(t.toBranchCode) === branchCode); allPo = []; } }
     let allHistoryItems = [ ...allTx, ...allPo.map(po => ({...po, type: 'po', batchId: po.poId, ref: po.poId})) ];
@@ -362,21 +419,31 @@ function renderTransactionHistory(filters = {}) {
             case 'po': typeDisplay = _t('po'); details = `${_t('create_po')} for <strong>${findByKey(state.suppliers, 'supplierCode', first.supplierCode)?.name || 'N/A'}</strong>`; statusTag = `<span class="status-tag status-${(first.Status || 'pending').toLowerCase().replace(/ /g,'')}">${_t('status_' + (first.Status || 'pending').toLowerCase().replace(/ /g,''))}</span>`; break;
             case 'adjustment_in': case 'adjustment_out': typeDisplay = _t('stock_adjustment'); details = `${_t('adjustments')} at <strong>${findByKey(state.branches, 'branchCode', first.fromBranchCode)?.branchName || 'N/A'}</strong>`; break;
         }
-        const tr = document.createElement('tr'); tr.innerHTML = `<td>${new Date(first.date).toLocaleString()}</td><td>${typeDisplay}</td><td>${refNum}</td><td>${details}</td><td>${statusTag}</td><td><div class="action-buttons">${actionsHtml}</div></td>`; tbody.appendChild(tr);
+        html += `<tr><td>${new Date(first.date).toLocaleString()}</td><td>${typeDisplay}</td><td>${refNum}</td><td>${details}</td><td>${statusTag}</td><td><div class="action-buttons">${actionsHtml}</div></td></tr>`;
     });
+    tbody.innerHTML = html;
 }
 
 function renderActivityLog() {
     const table = document.getElementById('table-activity-log');
     if(!table) return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+    
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
-    if (!state.activityLog || state.activityLog.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No activity logged.</td></tr>`; return; }
-    state.activityLog.slice().reverse().forEach(log => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${new Date(log.Timestamp).toLocaleString()}</td><td>${log.User || 'N/A'}</td><td>${log.Action}</td><td>${log.Description}</td>`;
-        tbody.appendChild(tr);
-    });
+    let html = '';
+    if (!state.activityLog || state.activityLog.length === 0) { html = `<tr><td colspan="4" style="text-align:center;">No activity logged.</td></tr>`; }
+    else {
+        state.activityLog.slice().reverse().forEach(log => {
+            html += `<tr><td>${new Date(log.Timestamp).toLocaleString()}</td><td>${log.User || 'N/A'}</td><td>${log.Action}</td><td>${log.Description}</td></tr>`;
+        });
+    }
+    tbody.innerHTML = html;
 }
 
 function renderUserManagementUI() {
@@ -384,44 +451,71 @@ function renderUserManagementUI() {
     const rolesTable = document.getElementById('table-roles');
     if(!usersTable || !rolesTable) return;
     
+    if (!usersTable.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        usersTable.parentNode.insertBefore(wrapper, usersTable);
+        wrapper.appendChild(usersTable);
+    }
+    if (!rolesTable.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        rolesTable.parentNode.insertBefore(wrapper, rolesTable);
+        wrapper.appendChild(rolesTable);
+    }
+    
     const usersTbody = usersTable.querySelector('tbody');
-    usersTbody.innerHTML = '';
+    let userHtml = '';
     (state.allUsers || []).forEach(user => {
-        const tr = document.createElement('tr');
         const assigned = findByKey(state.branches, 'branchCode', user.AssignedBranchCode)?.branchName || findByKey(state.sections, 'sectionCode', user.AssignedSectionCode)?.sectionName || 'N/A';
         const isDisabled = user.isDisabled === true || String(user.isDisabled).toUpperCase() === 'TRUE';
-        tr.innerHTML = `<td>${user.Username}</td><td>${user.Name}</td><td>${user.RoleName}</td><td>${assigned}</td><td><span class="status-tag ${isDisabled ? 'status-rejected' : 'status-approved'}">${isDisabled ? 'Disabled' : 'Active'}</span></td><td><button class="secondary small btn-edit" data-type="user" data-id="${user.Username}">${_t('edit')}</button></td>`;
-        usersTbody.appendChild(tr);
+        userHtml += `<tr><td>${user.Username}</td><td>${user.Name}</td><td>${user.RoleName}</td><td>${assigned}</td><td><span class="status-tag ${isDisabled ? 'status-rejected' : 'status-approved'}">${isDisabled ? 'Disabled' : 'Active'}</span></td><td><button class="secondary small btn-edit" data-type="user" data-id="${user.Username}">${_t('edit')}</button></td></tr>`;
     });
+    usersTbody.innerHTML = userHtml;
+
     const rolesTbody = rolesTable.querySelector('tbody');
-    rolesTbody.innerHTML = '';
+    let roleHtml = '';
     (state.allRoles || []).forEach(role => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${role.RoleName}</td><td><button class="secondary small btn-edit" data-type="role" data-id="${role.RoleName}">${_t('edit')}</button></td>`;
-        rolesTbody.appendChild(tr);
+        roleHtml += `<tr><td>${role.RoleName}</td><td><button class="secondary small btn-edit" data-type="role" data-id="${role.RoleName}">${_t('edit')}</button></td></tr>`;
     });
+    rolesTbody.innerHTML = roleHtml;
 }
 
 function renderMyRequests() {
     const table = document.getElementById('table-my-requests-history');
     if(!table) return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     const myRequests = (state.itemRequests || []).filter(r => r.RequestedBy === state.currentUser.Name);
     const grouped = myRequests.reduce((acc, req) => { if (!acc[req.RequestID]) acc[req.RequestID] = { ...req, items: [] }; acc[req.RequestID].items.push(req); return acc; }, {});
     Object.values(grouped).reverse().forEach(group => {
-        const tr = document.createElement('tr');
         const itemsSummary = group.items.map(i => `${i.Quantity} / ${i.IssuedQuantity !== '' && i.IssuedQuantity !== null ? i.IssuedQuantity : 'N/A'}`).join(', ');
-        tr.innerHTML = `<td>${group.RequestID}</td><td>${new Date(group.Date).toLocaleDateString()}</td><td>${_t(group.Type)}</td><td>${itemsSummary}</td><td><span class="status-tag status-${group.Status.toLowerCase()}">${_t('status_' + group.Status.toLowerCase())}</span></td><td>${group.StatusNotes || ''}</td>`;
-        tbody.appendChild(tr);
+        html += `<tr><td>${group.RequestID}</td><td>${new Date(group.Date).toLocaleDateString()}</td><td>${_t(group.Type)}</td><td>${itemsSummary}</td><td><span class="status-tag status-${group.Status.toLowerCase()}">${_t('status_' + group.Status.toLowerCase())}</span></td><td>${group.StatusNotes || ''}</td></tr>`;
     });
+    tbody.innerHTML = html;
 }
 
 function renderPendingRequests() {
     const table = document.getElementById('table-pending-requests');
     if(!table) return;
+    
+    if (!table.parentElement.classList.contains('table-responsive')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-responsive';
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+
     const tbody = table.querySelector('tbody');
-    tbody.innerHTML = '';
+    let html = '';
     const pending = (state.itemRequests || []).filter(r => r.Status === 'Pending' && (userCan('viewAllBranches') || r.ToBranch === state.currentUser.AssignedBranchCode));
     const grouped = pending.reduce((acc, req) => { if (!acc[req.RequestID]) acc[req.RequestID] = []; acc[req.RequestID].push(req); return acc; }, {});
     Object.values(grouped).forEach(group => {
@@ -429,14 +523,13 @@ function renderPendingRequests() {
         const fromSection = findByKey(state.sections, 'sectionCode', first.FromSection)?.sectionName || first.FromSection;
         const toBranch = findByKey(state.branches, 'branchCode', first.ToBranch)?.branchName || first.ToBranch;
         const itemsSummary = group.map(i => `${i.Quantity} x ${findByKey(state.items, 'code', i.ItemCode)?.name || i.ItemCode}`).join('<br>');
-        const tr = document.createElement('tr');
         let canApprove = (first.Type === 'issue' && userCan('opApproveIssueRequest')) || (first.Type === 'resupply' && userCan('opApproveResupplyRequest'));
-        tr.innerHTML = `<td>${first.RequestID}</td><td>${new Date(first.Date).toLocaleString()}</td><td>${_t(first.Type)}</td><td>${first.RequestedBy}</td><td>${_t('from_branch')}: ${fromSection}<br>${_t('to_branch')}: ${toBranch}</td><td>${itemsSummary}</td><td><div class="action-buttons"><button class="primary small btn-approve-request" data-id="${first.RequestID}" ${!canApprove ? 'disabled' : ''}>Approve</button><button class="danger small btn-reject-request" data-id="${first.RequestID}" ${!canApprove ? 'disabled' : ''}>${_t('reject')}</button></div></td>`;
-        tbody.appendChild(tr);
+        html += `<tr><td>${first.RequestID}</td><td>${new Date(first.Date).toLocaleString()}</td><td>${_t(first.Type)}</td><td>${first.RequestedBy}</td><td>${_t('from_branch')}: ${fromSection}<br>${_t('to_branch')}: ${toBranch}</td><td>${itemsSummary}</td><td><div class="action-buttons"><button class="primary small btn-approve-request" data-id="${first.RequestID}" ${!canApprove ? 'disabled' : ''}>Approve</button><button class="danger small btn-reject-request" data-id="${first.RequestID}" ${!canApprove ? 'disabled' : ''}>${_t('reject')}</button></div></td></tr>`;
     });
+    tbody.innerHTML = html;
 }
 
-// --- DOCUMENT GENERATORS ---
+// ... (Document Generators remain the same) ...
 const generateReceiveDocument = (data) => { const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'DELETED' }; const branch = findByKey(state.branches, 'branchCode', data.branchCode) || { branchName: 'DELETED' }; let itemsHtml = '', totalValue = 0; data.items.forEach(item => { const itemTotal = item.quantity * item.cost; totalValue += itemTotal; itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName}</td><td>${item.quantity.toFixed(2)}</td><td>${item.cost.toFixed(2)} EGP</td><td>${itemTotal.toFixed(2)} EGP</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>Goods Received Note</h2><p><strong>GRN No:</strong> ${data.batchId}</p><p><strong>${_t('table_h_invoice_no')}:</strong> ${data.invoiceNumber}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><p><strong>${_t('supplier')}:</strong> ${supplier.name} (${supplier.supplierCode || ''})</p><p><strong>${_t('receive_stock')} at:</strong> ${branch.branchName} (${branch.branchCode || ''})</p><hr><h3>${_t('items_to_be_received')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_cost_per_unit')}</th><th>${_t('table_h_total')}</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot><tr><td colspan="4" style="text-align:right;font-weight:bold;">${_t('total_value')}</td><td style="font-weight:bold;">${totalValue.toFixed(2)} EGP</td></tr></tfoot></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Signature:</strong> _________________________</p></div>`; printContent(content); };
 const generateTransferDocument = (data) => { const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'DELETED' }; const toBranch = findByKey(state.branches, 'branchCode', data.toBranchCode) || { branchName: 'DELETED' }; let itemsHtml = ''; data.items.forEach(item => { const fullItem = findByKey(state.items, 'code', item.itemCode) || { code: 'N/A', name: 'DELETED', unit: 'N/A' }; itemsHtml += `<tr><td>${fullItem.code || item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td>${parseFloat(item.quantity).toFixed(2)}</td><td>${fullItem.unit}</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>${_t('internal_transfer')} Order</h2><p><strong>Order ID:</strong> ${data.batchId}</p><p><strong>${_t('reference')}:</strong> ${data.ref}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><hr><p><strong>${_t('from_branch')}:</strong> ${fromBranch.branchName} (${fromBranch.branchCode || ''})</p><p><strong>${_t('to_branch')}:</strong> ${toBranch.branchName} (${toBranch.branchCode || ''})</p><hr><h3>${_t('items_to_be_transferred')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_unit')}</th></tr></thead><tbody>${itemsHtml}</tbody></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Sender:</strong> _________________</p><p><strong>Receiver:</strong> _________________</p></div>`; printContent(content); };
 const generateIssueDocument = (data) => { const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'DELETED' }; const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'DELETED' }; let itemsHtml = ''; data.items.forEach(item => { const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'DELETED', unit: 'N/A' }; itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td>${item.quantity.toFixed(2)}</td><td>${fullItem.unit}</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>${_t('issue_stock')} Note</h2><p><strong>${_t('issue_ref_no')}:</strong> ${data.ref}</p><p><strong>Batch ID:</strong> ${data.batchId}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><hr><p><strong>${_t('from_branch')}:</strong> ${fromBranch.branchName} (${fromBranch.branchCode || ''})</p><p><strong>${_t('to_section')}:</strong> ${toSection.sectionName} (${toSection.sectionCode || ''})</p><hr><h3>${_t('items_to_be_issued')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_unit')}</th></tr></thead><tbody>${itemsHtml}</tbody></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Issued By:</strong> _________________</p><p><strong>Received By:</strong> _________________</p></div>`; printContent(content); };
