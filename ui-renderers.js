@@ -1,4 +1,5 @@
 
+
 // ui-renderers.js
 
 // --- HELPER FUNCTIONS ---
@@ -702,18 +703,33 @@ function renderUnifiedConsumptionReport() {
 
 // Helper to build the common header structure
 const getDocumentHeader = (title, id, status = '') => {
-    const info = state.companySettings || {};
+    // Ensure object exists
+    const info = state.companySettings || {}; 
+    
+    const companyName = info.CompanyName || 'PACKING STOCK';
+    const address = info.Address || '';
+    // Build strings only if data exists
+    const taxInfo = [
+        info.TaxID ? `Tax ID: ${info.TaxID}` : '',
+        info.CRNumber ? `CR: ${info.CRNumber}` : ''
+    ].filter(Boolean).join(' | ');
+    
+    const contactInfo = [
+        info.Phone || '', 
+        info.Email || ''
+    ].filter(Boolean).join(' - ');
+
     return `
     <div class="doc-header">
         <div class="doc-brand">
-            <h1>${info.CompanyName || 'PACKING STOCK'}</h1>
-            <p>${info.Address || ''}</p>
-            <p>${info.TaxID ? 'Tax ID: ' + info.TaxID : ''} ${info.CRNumber ? '| CR: ' + info.CRNumber : ''}</p>
-            <p>${info.Phone || ''} ${info.Email || ''}</p>
+            <h1 style="margin:0; font-size:24px; color:#333;">${companyName}</h1>
+            <p style="margin:2px 0; font-size:12px;">${address}</p>
+            <p style="margin:2px 0; font-size:12px;">${taxInfo}</p>
+            <p style="margin:2px 0; font-size:12px;">${contactInfo}</p>
         </div>
-        <div class="doc-title">
-            <h2>${title}</h2>
-            <div class="status">${status || id}</div>
+        <div class="doc-title" style="text-align:right;">
+            <h2 style="margin:0; font-size:20px;">${title}</h2>
+            <div class="status" style="font-size:14px; margin-top:5px;">${status || id}</div>
         </div>
     </div>`;
 };
@@ -1166,3 +1182,4 @@ const generateAdjustmentDocument = (data) => {
     </div>`;
     printContent(content);
 };
+--- END OF FILE ui-renderers.js ---
