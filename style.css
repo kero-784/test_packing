@@ -1,4 +1,6 @@
-/* --- MODERN UI REDESIGN V3 (Mobile & Table Fixes) --- */
+--- START OF FILE style.css ---
+
+/* --- MODERN UI REDESIGN V4 (Mobile, Print & Pagination Fixes) --- */
 
 :root {
     --primary-color: #4A90E2;
@@ -168,9 +170,7 @@ html[dir="rtl"] body {
 .report-selection-control button { flex-shrink: 0; }
 .report-selection-control span { font-size: 14px; color: var(--text-light-color); font-style: italic; flex-shrink: 0; }
 
-/* --- Table & Scroll Fixes (Aggressive) --- */
-
-/* Wrapper for ALL tables to handle overflow */
+/* --- Table & Scroll Fixes --- */
 .table-responsive, 
 .report-area, 
 .card .report-area {
@@ -182,17 +182,15 @@ html[dir="rtl"] body {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     background: #fff;
-    white-space: nowrap; /* Forces content to stay on one line, triggering scroll */
+    white-space: nowrap; 
 }
 
-/* Force Table to be large enough to trigger scroll */
 table {
     width: 100%;
-    min-width: 800px; /* Forces horizontal scroll on phones */
+    min-width: 800px; 
     border-collapse: collapse;
 }
 
-/* Table Cells */
 th, td {
     padding: 12px 10px;
     text-align: left;
@@ -205,7 +203,7 @@ td button.btn-edit { width: 100%; text-align: center; justify-content: center;}
 tbody tr { transition: background-color 0.15s ease-in-out; }
 tbody tr:hover { background-color: #f7faff; }
 
-/* Fix Inputs inside tables */
+/* Table Inputs */
 table input.table-input {
     width: 100%;
     min-width: 80px; 
@@ -216,6 +214,44 @@ table input.table-input {
     background-color: white;
     border: 1px solid var(--border-color);
     border-radius: 4px;
+}
+
+/* Pagination Styles */
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.pagination-controls button {
+    padding: 6px 14px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.pagination-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-controls button:not(:disabled):hover {
+    background-color: var(--primary-light);
+    border-color: var(--primary-color);
+    color: var(--primary-dark);
+}
+
+.pagination-controls span {
+    font-size: 14px;
+    color: var(--text-light-color);
+    font-weight: 500;
 }
 
 /* Scrollbar Styling */
@@ -276,6 +312,38 @@ button:disabled { background-color: #D1D5DB; border-color: #D1D5DB; color: #6B72
 #view-transfer-modal-body p { margin: 4px 0; font-size: 16px; }
 #view-transfer-modal-body p strong { color: var(--text-light-color); display: inline-block; width: 120px; }
 
+/* Modal List Items (Selection) - Improved */
+.modal-item-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+}
+.modal-item {
+    display: flex;
+    align-items: center; /* Vertically center */
+    gap: 12px;
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+}
+.modal-item:hover {
+    background-color: var(--bg-color);
+}
+.modal-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    flex-shrink: 0; /* Prevent checkbox from squishing */
+    cursor: pointer;
+}
+.modal-item label {
+    margin: 0;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1.4;
+    flex-grow: 1;
+}
+
 /* --- Toggle Switch Styles --- */
 .form-group-toggle { display: flex; align-items: center; justify-content: space-between; max-width: 400px; }
 .form-group-toggle label { margin-bottom: 0; font-weight: 600; }
@@ -291,6 +359,37 @@ input:checked + .slider:before { transform: translateX(26px); }
 
 /* --- Admin Context Modal --- */
 #context-modal-message { margin-bottom: 24px; color: var(--text-light-color); line-height: 1.6; }
+
+/* --- Printing Styles (Fixes "Print entire screen" issue) --- */
+@media print {
+    body * {
+        visibility: hidden;
+        height: 0;
+        overflow: hidden;
+    }
+    
+    #print-area, #print-area * {
+        visibility: visible;
+        height: auto;
+        overflow: visible;
+    }
+    
+    #print-area {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        padding: 20px;
+        background: white;
+        z-index: 9999;
+    }
+    
+    .printable-document {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+}
 
 /*
 ====================================
@@ -311,7 +410,7 @@ html[dir="rtl"] .toolbar .filters-container { margin-left: 0; margin-right: auto
 html[dir="rtl"] .btn-refresh { margin-left: 0; margin-right: auto; }
 html[dir="rtl"] .modal-footer { justify-content: flex-start; }
 html[dir="rtl"] .form-group-checkbox { flex-direction: row-reverse; }
-html[dir="rtl"] .modal-item input[type="checkbox"] { margin-right: 0; margin-left: 16px; }
+html[dir="rtl"] .modal-item input[type="checkbox"] { margin-right: 0; margin-left: 12px; }
 html[dir="rtl"] .slider:before { left: auto; right: 4px; }
 html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
 
