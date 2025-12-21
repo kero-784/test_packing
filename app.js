@@ -1,3 +1,5 @@
+
+
 document.addEventListener('DOMContentLoaded', () => {
     Logger.info('DOM fully loaded. Starting initialization...');
 
@@ -45,6 +47,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         Logger.debug('Executing init()...');
         
+        // Initialize Pagination State
+        state.pagination = {
+            'table-transaction-history': { page: 1, pageSize: 20 },
+            'table-items': { page: 1, pageSize: 20 },
+            'table-suppliers': { page: 1, pageSize: 20 },
+            'table-activity-log': { page: 1, pageSize: 20 },
+            'table-po-viewer': { page: 1, pageSize: 20 },
+            'table-my-requests-history': { page: 1, pageSize: 20 }
+        };
+
         // PWA Install Logic
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -56,11 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     installBtn.style.display = 'none';
                     deferredPrompt.prompt();
                     deferredPrompt.userChoice.then((choiceResult) => {
-                        if (choiceResult.outcome === 'accepted') {
-                            Logger.info('User accepted the A2HS prompt');
-                        } else {
-                            Logger.info('User dismissed the A2HS prompt');
-                        }
+                        if (choiceResult.outcome === 'accepted') Logger.info('User accepted A2HS');
                         deferredPrompt = null;
                     });
                 });
@@ -87,22 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         applyTranslations();
 
-        const loginContainer = document.getElementById('login-container');
-        const appContainer = document.getElementById('app-container');
-        if(loginContainer) loginContainer.style.display = 'flex';
-        if(appContainer) appContainer.style.display = 'none';
-        
         if(loginForm) {
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const username = loginUsernameInput.value.trim();
                 const code = loginCodeInput.value;
-                if (username && code) {
-                    attemptLogin(username, code);
-                }
+                if (username && code) attemptLogin(username, code);
             });
-        } else {
-            Logger.error('Login form element not found in DOM!');
         }
     }
 
@@ -112,34 +111,28 @@ document.addEventListener('DOMContentLoaded', () => {
         setupRoleBasedNav();
         attachEventListeners();
         attachSubNavListeners(); 
+        setupPaginationListeners();
         
         // Find default view
         let firstVisibleView = 'dashboard';
         const visibleNavLink = document.querySelector('#main-nav .nav-item:not([style*="display: none"]) a');
-        if(visibleNavLink) {
-            firstVisibleView = visibleNavLink.dataset.view;
-        }
+        if(visibleNavLink) firstVisibleView = visibleNavLink.dataset.view;
 
         showView(firstVisibleView);
-        
         updateUserBranchDisplay();
         updatePendingRequestsWidget();
     };
 
     // --- NAVIGATION LOGIC ---
     window.showView = (viewId, subViewId = null) => {
-        Logger.info(`showView called for: ${viewId} (Sub: ${subViewId})`);
+        Logger.info(`showView called for: ${viewId}`);
         
         try {
-            // 1. Activate Main View
             document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
             document.querySelectorAll('#main-nav a').forEach(link => link.classList.remove('active'));
 
             const viewToShow = document.getElementById(`view-${viewId}`);
-            if(!viewToShow) {
-                Logger.error(`Target view ID 'view-${viewId}' not found in DOM.`);
-                return;
-            }
+            if(!viewToShow) return;
             viewToShow.classList.add('active');
             
             const activeLink = document.querySelector(`[data-view="${viewId}"]`);
@@ -156,34 +149,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 2. Activate Sub-View (if applicable)
-            const parentView = document.getElementById(`view-${viewId}`);
-            if (parentView.querySelector('.sub-nav')) {
+            // Sub-view logic
+            if (viewToShow.querySelector('.sub-nav')) {
                 let targetSubViewId = subViewId;
-
-                // Default to first visible sub-tab if none specified
                 if (!targetSubViewId) {
-                    const firstVisibleTab = parentView.querySelector('.sub-nav-item:not([style*="display: none"])');
+                    const firstVisibleTab = viewToShow.querySelector('.sub-nav-item:not([style*="display: none"])');
                     if (firstVisibleTab) targetSubViewId = firstVisibleTab.dataset.subview;
                 }
                 
                 if (targetSubViewId) {
-                    Logger.debug(`Activating sub-view: ${targetSubViewId}`);
-                    // Deactivate all
-                    parentView.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active'));
-                    parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active'));
+                    viewToShow.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active'));
+                    viewToShow.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active'));
 
-                    // Activate button
-                    const subViewBtn = parentView.querySelector(`[data-subview="${targetSubViewId}"]`);
+                    const subViewBtn = viewToShow.querySelector(`[data-subview="${targetSubViewId}"]`);
                     if(subViewBtn) subViewBtn.classList.add('active');
                     
-                    // Activate content div
-                    const subViewToShow = parentView.querySelector(`#subview-${targetSubViewId}`);
-                    if (subViewToShow) {
-                        subViewToShow.classList.add('active');
-                    } else {
-                        Logger.error(`Sub-view container '#subview-${targetSubViewId}' not found inside '#view-${viewId}'.`);
-                    }
+                    const subViewContainer = viewToShow.querySelector(`#subview-${targetSubViewId}`);
+                    if (subViewContainer) subViewContainer.classList.add('active');
                 }
             }
             
@@ -215,42 +197,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(kpiValue) kpiValue.textContent = `${totalValue.toFixed(2)} EGP`;
                     break;
                     
-                case 'setup':
-                    // This case is deprecated/merged into Master Data but kept for safety
-                    break;
-                    
-                case 'backup':
-                     await loadAndRenderBackups();
-                     await loadAutoBackupSettings();
-                     break;
-                     
-                case 'master-data':
-                    // Permission checks for ADD buttons in master data tabs
-                    const btnAddItem = document.querySelector('button[data-type="item"]');
-                    if(btnAddItem) btnAddItem.style.display = (userCan('createItem') || userCan('editItem')) ? 'inline-flex' : 'none';
-                    
-                    const btnAddSupplier = document.querySelector('button[data-type="supplier"]');
-                    if(btnAddSupplier) btnAddSupplier.style.display = (userCan('createSupplier') || userCan('editSupplier')) ? 'inline-flex' : 'none';
-                    
-                    const btnAddBranch = document.querySelector('button[data-type="branch"]');
-                    if(btnAddBranch) btnAddBranch.style.display = (userCan('createBranch') || userCan('editBranch')) ? 'inline-flex' : 'none';
-
-                    const btnAddSection = document.querySelector('button[data-type="section"]');
-                    if(btnAddSection) btnAddSection.style.display = (userCan('createSection') || userCan('editSection')) ? 'inline-flex' : 'none';
-
-                    renderItemsTable(); 
-                    renderSuppliersTable(); 
-                    renderBranchesTable(); 
-                    renderSectionsTable();
-                    break;
-                    
                 case 'operations':
                     populateOptions(document.getElementById('receive-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     populateOptions(document.getElementById('receive-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('transfer-from-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('transfer-to-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
-                    populateOptions(document.getElementById('issue-from-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
-                    populateOptions(document.getElementById('issue-to-section'), state.sections, _t('select_a_section'), 'sectionCode', 'sectionName');
                     populateOptions(document.getElementById('return-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     populateOptions(document.getElementById('return-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
@@ -259,53 +210,65 @@ document.addEventListener('DOMContentLoaded', () => {
                     const openPOs = (state.purchaseOrders || []).filter(po => po.Status === 'Approved');
                     populateOptions(document.getElementById('receive-po-select'), openPOs, _t('select_a_po'), 'poId', 'poId', 'supplierCode');
                     
-                    if(document.getElementById('issue-ref')) document.getElementById('issue-ref').value = generateId('ISN'); 
                     if(document.getElementById('transfer-ref')) document.getElementById('transfer-ref').value = generateId('TRN');
                     
                     renderReceiveListTable(); 
-                    renderIssueListTable(); 
                     renderTransferListTable(); 
                     renderReturnListTable(); 
                     renderPendingTransfers(); 
                     renderInTransitReport(); 
                     renderAdjustmentListTable();
                     break;
-                    
-                case 'purchasing':
-                     populateOptions(document.getElementById('po-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
-                     if(document.getElementById('po-ref')) document.getElementById('po-ref').value = generateId('PO');
-                     renderPOListTable(); 
-                     renderPurchaseOrdersViewer(); 
-                     renderPendingFinancials();
-                     break;
+
+                case 'internal-distribution':
+                     // Moved Issue Stock, Consumption Report, Requests here
+                     populateOptions(document.getElementById('issue-from-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
+                     populateOptions(document.getElementById('issue-to-section'), state.sections, _t('select_a_section'), 'sectionCode', 'sectionName');
+                     if(document.getElementById('issue-ref')) document.getElementById('issue-ref').value = generateId('ISN');
                      
-                case 'requests':
-                    renderRequestListTable(); 
-                    renderMyRequests(); 
-                    renderPendingRequests();
-                    break;
-                    
-                case 'payments':
+                     renderRequestListTable(); 
+                     renderMyRequests(); // Should use pagination
+                     renderPendingRequests();
+                     renderIssueListTable();
+                     
+                     const branchCount = document.getElementById('consumption-branch-count');
+                     if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
+                     const sectionCount = document.getElementById('consumption-section-count');
+                     if(sectionCount) sectionCount.textContent = `${state.reportSelectedSections.size} selected`;
+                     const itemCount = document.getElementById('consumption-item-count');
+                     if(itemCount) itemCount.textContent = `${state.reportSelectedItems.size} selected`;
+                     break;
+
+                case 'financials':
                     populateOptions(document.getElementById('payment-supplier-select'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
+                    populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
                     renderPaymentList();
                     const btnInv = document.getElementById('btn-select-invoices');
                     if(btnInv) btnInv.disabled = true;
                     break;
                     
-                case 'reports':
-                    populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
-                    const branchCount = document.getElementById('consumption-branch-count');
-                    if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
-                    break;
+                case 'purchasing':
+                     populateOptions(document.getElementById('po-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
+                     if(document.getElementById('po-ref')) document.getElementById('po-ref').value = generateId('PO');
+                     renderPOListTable(); 
+                     renderPurchaseOrdersViewer(); // Pagination
+                     renderPendingFinancials();
+                     break;
                     
                 case 'stock-levels':
                     const titleEl = document.getElementById('stock-levels-title');
                     if(titleEl) titleEl.textContent = userCan('viewAllBranches') ? _t('stock_by_item_all_branches') : _t('stock_by_item_your_branch');
+                    
+                    // Show/Hide Branch Select Button based on permission
+                    const btnSelectBranches = document.getElementById('btn-stock-select-branches');
+                    if (btnSelectBranches) {
+                        btnSelectBranches.style.display = userCan('viewAllBranches') ? 'inline-flex' : 'none';
+                    }
+                    
                     renderItemCentricStockView();
                     const itemInq = document.getElementById('item-inquiry-search');
-                    if(itemInq) itemInq.value = '';
-                    const stockSearch = document.getElementById('stock-levels-search');
-                    if(stockSearch) stockSearch.value = '';
+                    // Reset inquiry view
+                    if(document.getElementById('item-inquiry-results')) document.getElementById('item-inquiry-results').innerHTML = '';
                     break;
                     
                 case 'transaction-history': 
@@ -314,6 +277,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const txTypeOptions = txTypes.map(t => ({'type': t, 'name': _t(t.replace(/_/g,''))}));
                     populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
                     
+                    // Trigger render with pagination
+                    state.pagination['table-transaction-history'].page = 1;
                     const txStartDate = document.getElementById('tx-filter-start-date');
                     const txEndDate = document.getElementById('tx-filter-end-date');
                     const txType = document.getElementById('tx-filter-type');
@@ -328,15 +293,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchTerm: txSearch ? txSearch.value : null
                     }); 
                     break;
-                    
+                
+                case 'master-data':
+                    renderItemsTable(); 
+                    renderSuppliersTable(); 
+                    renderBranchesTable(); 
+                    renderSectionsTable();
+                    break;
+
                 case 'user-management':
-                    const result = await postData('getAllUsersAndRoles', {}, null);
+                    const result = await postData('getAllUsersAndRoles', {}, null, 'Loading...');
                     if (result) { state.allUsers = result.data.users; state.allRoles = result.data.roles; renderUserManagementUI(); }
                     break;
                     
                 case 'activity-log':
                     renderActivityLog();
                     break;
+
+                case 'backup':
+                     await loadAndRenderBackups();
+                     await loadAutoBackupSettings();
+                     break;
             }
             applyUserUIConstraints();
             applyTranslations();
@@ -350,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { username, loginCode } = state; 
         if (!username || !loginCode) return; 
         
-        setButtonLoading(true, globalRefreshBtn); 
+        setButtonLoading(true, globalRefreshBtn, 'Loading...'); 
         try { 
             const response = await fetch(`${SCRIPT_URL}?username=${encodeURIComponent(username)}&loginCode=${encodeURIComponent(loginCode)}`); 
             if (!response.ok) throw new Error('Failed to reload data.'); 
@@ -420,12 +397,16 @@ document.addEventListener('DOMContentLoaded', () => {
         setupSearch('search-suppliers', renderSuppliersTable, 'suppliers', ['name', 'supplierCode']);
         setupSearch('search-branches', renderBranchesTable, 'branches', ['branchName', 'branchCode']);
         setupSearch('search-sections', renderSectionsTable, 'sections', ['sectionName', 'sectionCode']);
-        setupSearch('stock-levels-search', renderItemCentricStockView, 'items', ['name', 'code']);
         
-        const itemInqSearch = document.getElementById('item-inquiry-search');
-        if(itemInqSearch) {
-            itemInqSearch.addEventListener('input', e => renderItemInquiry(e.target.value.toLowerCase()));
-        }
+        // Stock Levels View - New Button Listeners
+        const btnStockSelectItems = document.getElementById('btn-stock-select-items');
+        if(btnStockSelectItems) btnStockSelectItems.addEventListener('click', () => openSelectionModal('stock-level-items'));
+
+        const btnStockSelectBranches = document.getElementById('btn-stock-select-branches');
+        if(btnStockSelectBranches) btnStockSelectBranches.addEventListener('click', () => openSelectionModal('stock-level-branches'));
+        
+        const btnOpenItemInquiry = document.getElementById('btn-open-item-inquiry');
+        if(btnOpenItemInquiry) btnOpenItemInquiry.addEventListener('click', () => openSelectionModal('item-inquiry'));
 
         // Export Buttons
         const exportMap = {
@@ -469,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnCreateBackup.addEventListener('click', async (e) => {
                 const btn = e.currentTarget;
                 if (confirm(_t('backup_confirm_prompt'))) {
-                    const result = await postData('createBackup', {}, btn);
+                    const result = await postData('createBackup', {}, btn, 'Creating...');
                     if (result && result.data) {
                         showToast(_t('backup_created_toast', {fileName: result.data.fileName}), 'success');
                         await loadAndRenderBackups();
@@ -511,8 +492,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (e.target.checked) state.currentSelectionModal.tempSelections.add(e.target.dataset.id);
                     else state.currentSelectionModal.tempSelections.delete(e.target.dataset.id);
                 }
+                
+                // Handle "Select All" click inside list (if any specific logic needed)
             });
         }
+        
+        document.getElementById('selection-modal-select-all')?.addEventListener('click', () => {
+            document.querySelectorAll('#selection-modal-list input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+                state.currentSelectionModal.tempSelections.add(cb.dataset.id);
+            });
+        });
+        
+        document.getElementById('selection-modal-deselect-all')?.addEventListener('click', () => {
+            document.querySelectorAll('#selection-modal-list input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+                state.currentSelectionModal.tempSelections.delete(cb.dataset.id);
+            });
+        });
         
         // Transaction Filters
         ['tx-filter-start-date', 'tx-filter-end-date', 'tx-filter-type', 'tx-filter-branch', 'transaction-search'].forEach(id => {
@@ -520,6 +517,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if(el) {
                 const eventType = (el.tagName === 'SELECT' || el.type === 'date') ? 'change' : 'input';
                 el.addEventListener(eventType, () => {
+                    // Reset to page 1 on filter change
+                    state.pagination['table-transaction-history'].page = 1;
                     const startDate = document.getElementById('tx-filter-start-date');
                     const endDate = document.getElementById('tx-filter-end-date');
                     const type = document.getElementById('tx-filter-type');
@@ -536,6 +535,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
+    }
+
+    // --- PAGINATION LISTENERS ---
+    function setupPaginationListeners() {
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('.pagination-btn')) {
+                const tableId = e.target.dataset.table;
+                const delta = parseInt(e.target.dataset.delta);
+                handlePageChange(tableId, delta);
+            }
+        });
+    }
+
+    function handlePageChange(tableId, delta) {
+        if (!state.pagination[tableId]) return;
+        state.pagination[tableId].page += delta;
+        if (state.pagination[tableId].page < 1) state.pagination[tableId].page = 1;
+
+        // Trigger re-render based on table ID
+        switch(tableId) {
+            case 'table-transaction-history':
+                const startDate = document.getElementById('tx-filter-start-date');
+                const endDate = document.getElementById('tx-filter-end-date');
+                const type = document.getElementById('tx-filter-type');
+                const branch = document.getElementById('tx-filter-branch');
+                const search = document.getElementById('transaction-search');
+                renderTransactionHistory({
+                    startDate: startDate ? startDate.value : null,
+                    endDate: endDate ? endDate.value : null,
+                    type: type ? type.value : null,
+                    branch: branch ? branch.value : null,
+                    searchTerm: search ? search.value : null
+                });
+                break;
+            case 'table-items': renderItemsTable(); break;
+            case 'table-suppliers': renderSuppliersTable(); break;
+            case 'table-activity-log': renderActivityLog(); break;
+            case 'table-po-viewer': renderPurchaseOrdersViewer(); break;
+            case 'table-my-requests-history': renderMyRequests(); break;
+        }
     }
 
     // --- SUB-NAVIGATION (TABS) LISTENER ---
@@ -577,33 +616,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }); 
     }
 
-    // --- FORM HANDLERS (Simplified for brevity, ensuring null checks) ---
+    // --- FORM HANDLERS ---
     function attachFormListeners() {
         const addItemForm = document.getElementById('form-add-item');
         if (addItemForm) {
             addItemForm.addEventListener('submit', async e => {
-                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { code: document.getElementById('item-code').value, barcode: document.getElementById('item-barcode').value, name: document.getElementById('item-name').value, unit: document.getElementById('item-unit').value, category: document.getElementById('item-category').value, supplierCode: document.getElementById('item-supplier').value, cost: parseFloat(document.getElementById('item-cost').value) }; const result = await postData('addItem', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('item')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
+                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { code: document.getElementById('item-code').value, barcode: document.getElementById('item-barcode').value, name: document.getElementById('item-name').value, unit: document.getElementById('item-unit').value, category: document.getElementById('item-category').value, supplierCode: document.getElementById('item-supplier').value, cost: parseFloat(document.getElementById('item-cost').value) }; const result = await postData('addItem', data, btn, 'Saving...'); if (result) { showToast(_t('add_success_toast', {type: _t('item')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
             });
         }
         
         const addSupplierForm = document.getElementById('form-add-supplier');
         if (addSupplierForm) {
             addSupplierForm.addEventListener('submit', async e => {
-                 e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { supplierCode: document.getElementById('supplier-code').value, name: document.getElementById('supplier-name').value, contact: document.getElementById('supplier-contact').value }; const result = await postData('addSupplier', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('supplier')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); } 
+                 e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { supplierCode: document.getElementById('supplier-code').value, name: document.getElementById('supplier-name').value, contact: document.getElementById('supplier-contact').value }; const result = await postData('addSupplier', data, btn, 'Saving...'); if (result) { showToast(_t('add_success_toast', {type: _t('supplier')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); } 
             });
         }
 
         const addBranchForm = document.getElementById('form-add-branch');
         if (addBranchForm) {
             addBranchForm.addEventListener('submit', async e => {
-                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { branchCode: document.getElementById('branch-code').value, branchName: document.getElementById('branch-name').value }; const result = await postData('addBranch', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('branch')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
+                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { branchCode: document.getElementById('branch-code').value, branchName: document.getElementById('branch-name').value }; const result = await postData('addBranch', data, btn, 'Saving...'); if (result) { showToast(_t('add_success_toast', {type: _t('branch')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
             });
         }
 
         const addSectionForm = document.getElementById('form-add-section');
         if (addSectionForm) {
             addSectionForm.addEventListener('submit', async e => {
-                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { sectionCode: document.getElementById('section-code').value, sectionName: document.getElementById('section-name').value }; const result = await postData('addSection', data, btn); if (result) { showToast(_t('add_success_toast', {type: _t('section')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
+                e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'); const data = { sectionCode: document.getElementById('section-code').value, sectionName: document.getElementById('section-name').value }; const result = await postData('addSection', data, btn, 'Saving...'); if (result) { showToast(_t('add_success_toast', {type: _t('section')}), 'success'); e.target.reset(); reloadDataAndRefreshUI(); }
             });
         }
 
@@ -644,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const submitRequest = document.getElementById('btn-submit-request');
         if(submitRequest) {
-            submitRequest.addEventListener('click', async(e) => { const btn = e.currentTarget; let fromSection = state.currentUser.AssignedSectionCode, toBranch = state.currentUser.AssignedBranchCode; const requestType = document.getElementById('request-type').value; const notes = document.getElementById('request-notes').value; if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ toBranch: true, fromSection: true }); if(!context) return; fromSection = context.fromSection; toBranch = context.toBranch; } if(state.currentRequestList.length === 0){ showToast('Please select items for your request.', 'error'); return; } if(!fromSection || !toBranch){ showToast('Your user is not assigned a branch/section to make requests. Please contact an admin.', 'error'); return; } const payload = { requestId: `REQ-${Date.now()}`, requestType, notes, items: state.currentRequestList, FromSection: fromSection, ToBranch: toBranch }; const result = await postData('addItemRequest', payload, btn); if(result){ showToast('Request submitted successfully!', 'success'); state.currentRequestList = []; document.getElementById('form-create-request').reset(); renderRequestListTable(); reloadDataAndRefreshUI(); }});
+            submitRequest.addEventListener('click', async(e) => { const btn = e.currentTarget; let fromSection = state.currentUser.AssignedSectionCode, toBranch = state.currentUser.AssignedBranchCode; const requestType = document.getElementById('request-type').value; const notes = document.getElementById('request-notes').value; if(userCan('viewAllBranches') && !state.currentUser.AssignedBranchCode) { const context = await requestAdminContext({ toBranch: true, fromSection: true }); if(!context) return; fromSection = context.fromSection; toBranch = context.toBranch; } if(state.currentRequestList.length === 0){ showToast('Please select items for your request.', 'error'); return; } if(!fromSection || !toBranch){ showToast('Your user is not assigned a branch/section to make requests. Please contact an admin.', 'error'); return; } const payload = { requestId: `REQ-${Date.now()}`, requestType, notes, items: state.currentRequestList, FromSection: fromSection, ToBranch: toBranch }; const result = await postData('addItemRequest', payload, btn, 'Submitting...'); if(result){ showToast('Request submitted successfully!', 'success'); state.currentRequestList = []; document.getElementById('form-create-request').reset(); renderRequestListTable(); reloadDataAndRefreshUI(); }});
         }
         
         const submitAdjustment = document.getElementById('btn-submit-adjustment');
@@ -686,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 if (payments.length === 0) { showToast('Amount must be greater than zero.', 'error'); return; }
                 const payload = { supplierCode, method, date: new Date().toISOString(), totalAmount, payments };
-                const result = await postData('addPaymentBatch', payload, btn);
+                const result = await postData('addPaymentBatch', payload, btn, 'Processing...');
                 if (result) { showToast('Payment recorded!', 'success'); generatePaymentVoucher(payload); state.invoiceModalSelections.clear(); document.getElementById('form-record-payment').reset(); renderPaymentList(); reloadDataAndRefreshUI(); }
             });
         }
@@ -714,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ref: `OB-${supplierCode}`
                 };
                 
-                const result = await postData('financialAdjustment', payload, btn);
+                const result = await postData('financialAdjustment', payload, btn, 'Saving...');
                 if (result) {
                     showToast('Supplier opening balance set successfully!', 'success');
                     e.target.reset();
@@ -752,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.classList.contains('btn-edit')) openEditModal(btn.dataset.type, btn.dataset.id);
         if (btn.classList.contains('btn-history')) openHistoryModal(btn.dataset.id);
         if (btn.id === 'btn-add-new-user') openEditModal('user', null);
-        if (btn.id === 'btn-add-new-role') { const roleName = prompt(_t('add_role_prompt')); if(roleName) { postData('addRole', { RoleName: roleName }, btn).then(res => res && reloadDataAndRefreshUI()); } }
+        if (btn.id === 'btn-add-new-role') { const roleName = prompt(_t('add_role_prompt')); if(roleName) { postData('addRole', { RoleName: roleName }, btn, 'Adding...').then(res => res && reloadDataAndRefreshUI()); } }
         
         if (btn.classList.contains('btn-view-tx')) {
              const batchId = btn.dataset.batchId; const type = btn.dataset.type;
@@ -775,10 +814,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (btn.classList.contains('btn-receive-transfer')) openViewTransferModal(btn.dataset.batchId);
         if (btn.classList.contains('btn-edit-transfer')) openPOEditModal(btn.dataset.batchId); 
-        if (btn.classList.contains('btn-cancel-transfer')) { const batchId = btn.dataset.batchId; if (confirm(`Cancel transfer ${batchId}?`)) { postData('cancelTransfer', { batchId }, btn).then(res => res && reloadDataAndRefreshUI()); } }
+        if (btn.classList.contains('btn-cancel-transfer')) { const batchId = btn.dataset.batchId; if (confirm(`Cancel transfer ${batchId}?`)) { postData('cancelTransfer', { batchId }, btn, 'Cancelling...').then(res => res && reloadDataAndRefreshUI()); } }
         
         if (btn.classList.contains('btn-approve-request')) openApproveRequestModal(btn.dataset.id); 
-        if (btn.classList.contains('btn-reject-request')) { if(confirm('Reject request?')) postData('rejectItemRequest', { requestId: btn.dataset.id }, btn).then(res => res && reloadDataAndRefreshUI()); }
+        if (btn.classList.contains('btn-reject-request')) { if(confirm('Reject request?')) postData('rejectItemRequest', { requestId: btn.dataset.id }, btn, 'Rejecting...').then(res => res && reloadDataAndRefreshUI()); }
         
         if (btn.classList.contains('btn-edit-po')) openPOEditModal(btn.dataset.poId);
         if (btn.classList.contains('btn-edit-invoice')) openInvoiceEditModal(btn.dataset.batchId);
@@ -786,12 +825,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.classList.contains('btn-approve-financial') || btn.classList.contains('btn-reject-financial')) {
             const id = btn.dataset.id, type = btn.dataset.type, action = btn.classList.contains('btn-approve-financial') ? 'approveFinancial' : 'rejectFinancial';
             if (confirm(`Confirm ${action.replace('Financial','')} for ${type}?`)) {
-                postData(action, { id, type }, btn).then(res => { if(res) { showToast('Processed successfully', 'success'); reloadDataAndRefreshUI(); } });
+                postData(action, { id, type }, btn, 'Processing...').then(res => { if(res) { showToast('Processed successfully', 'success'); reloadDataAndRefreshUI(); } });
             }
         }
         
         if (btn.id === 'btn-generate-supplier-statement') renderSupplierStatement(document.getElementById('supplier-statement-select').value, document.getElementById('statement-start-date').value, document.getElementById('statement-end-date').value);
         if (btn.id === 'btn-generate-consumption-report') renderUnifiedConsumptionReport();
+        
+        // Print Button Handlers
+        if (btn.id === 'btn-print-pending-requests') window.printReport('subview-pending-approval');
     }
 
     function handleGlobalClicks(e) {
@@ -803,17 +845,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const batchId = e.target.dataset.batchId;
             const transferGroup = state.transactions.filter(t => t.batchId === batchId);
             const payload = { originalBatchId: batchId, ref: transferGroup[0].ref, fromBranchCode: transferGroup[0].fromBranchCode, toBranchCode: transferGroup[0].toBranchCode, items: transferGroup.map(t => ({ itemCode: t.itemCode, quantity: t.quantity })), notes: `Received ${batchId}` };
-            postData('receiveTransfer', payload, e.target).then(res => { if(res) { showToast('Received!', 'success'); closeModal(); reloadDataAndRefreshUI(); } });
+            postData('receiveTransfer', payload, e.target, 'Receiving...').then(res => { if(res) { showToast('Received!', 'success'); closeModal(); reloadDataAndRefreshUI(); } });
         }
         if (e.target.id === 'btn-reject-transfer') {
-             if(confirm('Reject transfer?')) postData('rejectTransfer', { batchId: e.target.dataset.batchId }, e.target).then(res => { if(res) { showToast('Rejected.', 'success'); closeModal(); reloadDataAndRefreshUI(); } });
+             if(confirm('Reject transfer?')) postData('rejectTransfer', { batchId: e.target.dataset.batchId }, e.target, 'Rejecting...').then(res => { if(res) { showToast('Rejected.', 'success'); closeModal(); reloadDataAndRefreshUI(); } });
+        }
+        if (e.target.id === 'btn-print-draft-issue-note') {
+             // Logic to print draft issue note from approval modal
+             const requestId = document.getElementById('btn-confirm-request-approval').dataset.requestId;
+             const reqs = state.itemRequests.filter(r => r.RequestID === requestId);
+             if(reqs.length) {
+                 const first = reqs[0];
+                 const items = Array.from(document.querySelectorAll('#approve-request-modal tbody tr')).map(tr => ({ itemCode: tr.querySelector('input').dataset.itemCode, quantity: parseFloat(tr.querySelector('input').value) || 0 }));
+                 generateRequestIssueDocument({ ref: requestId, date: new Date().toISOString(), fromBranchCode: first.ToBranch, sectionCode: first.FromSection, items: items });
+             }
         }
     }
 
     // --- LOGIC HELPERS ---
     async function handleTransactionSubmit(payload, buttonEl) {
         const action = payload.type === 'po' ? 'addPurchaseOrder' : 'addTransactionBatch';
-        const result = await postData(action, payload, buttonEl);
+        const result = await postData(action, payload, buttonEl, 'Submitting...');
         if (result) {
             const typeKey = payload.type.replace(/_/g,'');
             if (payload.type === 'receive') { state.currentReceiveList = []; document.getElementById('form-receive-details').reset(); renderReceiveListTable(); }
@@ -838,12 +890,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = state.currentUser; if (!user) return;
         const userFirstName = user.Name.split(' ')[0];
         document.querySelector('.sidebar-header h1').textContent = _t('hi_user', {userFirstName});
-        const navMap = { 'dashboard': 'viewDashboard', 'operations': 'viewOperations', 'purchasing': 'viewPurchasing', 'requests': 'viewRequests', 'payments': 'viewPayments', 'reports': 'viewReports', 'stock-levels': 'viewStockLevels', 'transaction-history': 'viewTransactionHistory', 'setup': 'viewSetup', 'master-data': 'viewMasterData', 'user-management': 'manageUsers', 'backup': 'opBackupRestore', 'activity-log': 'viewActivityLog' };
+        const navMap = { 'dashboard': 'viewDashboard', 'operations': 'viewOperations', 'purchasing': 'viewPurchasing', 'internal-distribution': 'viewRequests', 'financials': 'viewPayments', 'reports': 'viewReports', 'stock-levels': 'viewStockLevels', 'transaction-history': 'viewTransactionHistory', 'setup': 'viewSetup', 'master-data': 'viewMasterData', 'user-management': 'manageUsers', 'backup': 'opBackupRestore', 'activity-log': 'viewActivityLog' };
         for (const [view, permission] of Object.entries(navMap)) {
             const navItem = document.querySelector(`[data-view="${view}"]`);
             if (navItem) { 
                 let hasPermission = userCan(permission);
-                if (view === 'requests') hasPermission = userCan('opRequestItems') || userCan('opApproveIssueRequest') || userCan('opApproveResupplyRequest');
+                if (view === 'internal-distribution') hasPermission = userCan('opRequestItems') || userCan('opApproveIssueRequest') || userCan('opApproveResupplyRequest') || userCan('viewReports');
                 if (view === 'operations') hasPermission = userCan('viewOperations') || userCan('opStockAdjustment') || userCan('opFinancialAdjustment');
                 navItem.parentElement.style.display = hasPermission ? '' : 'none'; 
             }
@@ -910,6 +962,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'modal-item';
             itemDiv.innerHTML = `<input type="checkbox" id="modal-item-${item.code}" data-code="${item.code}" ${isChecked ? 'checked' : ''}><label for="modal-item-${item.code}"><strong>${item.name}</strong><br><small style="color:var(--text-light-color)">${_t('table_h_code')}: ${item.code}</small></label>`;
+            itemDiv.addEventListener('click', e => {
+                 // Toggle checkbox if clicked anywhere on the item row
+                 if (e.target.type !== 'checkbox') {
+                     const cb = itemDiv.querySelector('input[type="checkbox"]');
+                     cb.checked = !cb.checked;
+                     cb.dispatchEvent(new Event('change', { bubbles: true }));
+                 }
+            });
             modalItemList.appendChild(itemDiv);
         });
     }
@@ -985,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(id) formHtml += `<div class="form-group span-full"><button type="button" id="btn-toggle-user-status" class="${record.isDisabled ? 'primary' : 'danger'}">${record.isDisabled ? 'Enable' : 'Disable'}</button></div>`;
             editModalBody.innerHTML = formHtml;
             if(document.getElementById('btn-toggle-user-status')) {
-                document.getElementById('btn-toggle-user-status').addEventListener('click', async () => { if(confirm('Change user status?')) { await postData('updateUser', { Username: id, updates: { isDisabled: !record.isDisabled } }, null); closeModal(); reloadDataAndRefreshUI(); } });
+                document.getElementById('btn-toggle-user-status').addEventListener('click', async () => { if(confirm('Change user status?')) { await postData('updateUser', { Username: id, updates: { isDisabled: !record.isDisabled } }, null, 'Updating...'); closeModal(); reloadDataAndRefreshUI(); } });
             }
         }
         else if(type === 'item') {
@@ -1070,7 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Convert any numeric fields
         if(payload.cost) payload.cost = parseFloat(payload.cost);
         
-        if (await postData(action, payload, e.target.querySelector('button[type="submit"]'))) { showToast('Saved!', 'success'); closeModal(); reloadDataAndRefreshUI(); }
+        if (await postData(action, payload, e.target.querySelector('button[type="submit"]'), 'Saving...')) { showToast('Saved!', 'success'); closeModal(); reloadDataAndRefreshUI(); }
     }
 
     async function openHistoryModal(itemCode) {
@@ -1109,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function savePOChanges(e) {
         const btn = e.currentTarget;
         const payload = { poId: btn.dataset.poId, notes: document.getElementById('edit-po-notes').value, items: state.currentEditingPOList, totalValue: state.currentEditingPOList.reduce((acc, i) => acc + (i.quantity * i.cost), 0) };
-        if(await postData('editPurchaseOrder', payload, btn)) { showToast('Updated PO', 'success'); closeModal(); reloadDataAndRefreshUI(); }
+        if(await postData('editPurchaseOrder', payload, btn, 'Saving...')) { showToast('Updated PO', 'success'); closeModal(); reloadDataAndRefreshUI(); }
     }
 
     function openApproveRequestModal(requestId) {
@@ -1117,7 +1177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if(reqs.length === 0) return;
         const first = reqs[0];
         document.getElementById('approve-request-modal-title').textContent = `Approve ${requestId}`;
-        let html = `<p>From: ${first.FromSection} To: ${first.ToBranch}</p><table><thead><tr><th>Code</th><th>Item</th><th>Req Qty</th><th>Avail</th><th>Issue Qty</th></tr></thead><tbody>`;
+        // Resolve names
+        const branchName = findByKey(state.branches, 'branchCode', first.ToBranch)?.branchName || first.ToBranch;
+        const sectionName = findByKey(state.sections, 'sectionCode', first.FromSection)?.sectionName || first.FromSection;
+        
+        let html = `<p>From Section: <strong>${sectionName}</strong> <br> To Branch: <strong>${branchName}</strong></p><table><thead><tr><th>Code</th><th>Item</th><th>Req Qty</th><th>Avail</th><th>Issue Qty</th></tr></thead><tbody>`;
         reqs.forEach(r => {
             const avail = calculateStockLevels()[first.ToBranch]?.[r.ItemCode]?.quantity || 0;
             html += `<tr><td>${r.ItemCode}</td><td>${findByKey(state.items, 'code', r.ItemCode)?.name}</td><td>${r.Quantity}</td><td>${avail.toFixed(2)}</td><td><input type="number" class="table-input" data-item-code="${r.ItemCode}" value="${r.Quantity}" max="${avail}"></td></tr>`;
@@ -1132,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const requestId = e.target.closest('button').dataset.requestId;
         const editedItems = Array.from(document.querySelectorAll('#approve-request-modal tbody tr')).map(tr => ({ itemCode: tr.querySelector('input').dataset.itemCode, issuedQuantity: parseFloat(tr.querySelector('input').value) || 0 }));
         const statusNotes = document.getElementById('approve-status-notes').value;
-        if(await postData('approveItemRequest', { requestId, statusNotes, editedItems }, e.target)) { showToast('Approved!', 'success'); closeModal(); reloadDataAndRefreshUI(); }
+        if(await postData('approveItemRequest', { requestId, statusNotes, editedItems }, e.target, 'Approving...')) { showToast('Approved!', 'success'); closeModal(); reloadDataAndRefreshUI(); }
     }
 
     function openViewTransferModal(batchId) {
@@ -1148,12 +1212,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const listEl = document.getElementById('selection-modal-list');
         listEl.innerHTML = '';
         let data = [];
-        if(type === 'branches') data = state.branches.map(b => ({id: b.branchCode, name: b.branchName}));
-        if(type === 'sections') data = state.sections.map(s => ({id: s.sectionCode, name: s.sectionName}));
-        if(type === 'items') data = state.items.map(i => ({id: i.code, name: i.name}));
+        let existingSet = new Set();
+        
+        // Map types to data sources and state sets
+        if(type === 'branches') { 
+            data = state.branches.map(b => ({id: b.branchCode, name: b.branchName}));
+            existingSet = state.reportSelectedBranches;
+        } else if(type === 'sections') { 
+            data = state.sections.map(s => ({id: s.sectionCode, name: s.sectionName}));
+            existingSet = state.reportSelectedSections;
+        } else if(type === 'items') { 
+            data = state.items.map(i => ({id: i.code, name: i.name}));
+            existingSet = state.reportSelectedItems;
+        } else if (type === 'stock-level-items') {
+            data = state.items.map(i => ({id: i.code, name: i.name}));
+            // Special case for stock level report filtering, maybe use a different set or just the item list for inquiry
+            existingSet = new Set(); // Reset for this view if needed, or maintain state
+        } else if (type === 'stock-level-branches') {
+             data = state.branches.map(b => ({id: b.branchCode, name: b.branchName}));
+             existingSet = new Set(); // Reset or maintain
+        } else if (type === 'item-inquiry') {
+            data = state.items.map(i => ({id: i.code, name: i.name}));
+            existingSet = new Set(); // Single select logic implemented via click usually
+        }
+
+        // Pre-fill temp selections from existing state
+        state.currentSelectionModal.tempSelections = new Set(existingSet);
+
         data.forEach(item => {
             const div = document.createElement('div'); div.className = 'modal-item';
             div.innerHTML = `<input type="checkbox" data-id="${item.id}" ${state.currentSelectionModal.tempSelections.has(item.id) ? 'checked' : ''}><label>${item.name}</label>`;
+            
+            // Allow row click to toggle checkbox
+            div.addEventListener('click', e => {
+                 if (e.target.type !== 'checkbox') {
+                     const cb = div.querySelector('input[type="checkbox"]');
+                     cb.checked = !cb.checked;
+                     cb.dispatchEvent(new Event('change', { bubbles: true }));
+                 }
+            });
+            
             listEl.appendChild(div);
         });
         selectionModal.classList.add('active');
@@ -1162,10 +1260,38 @@ document.addEventListener('DOMContentLoaded', () => {
     function confirmReportSelection() {
         const type = state.currentSelectionModal.type;
         const set = state.currentSelectionModal.tempSelections;
-        if(type === 'branches') state.reportSelectedBranches = new Set(set);
-        if(type === 'sections') state.reportSelectedSections = new Set(set);
-        if(type === 'items') state.reportSelectedItems = new Set(set);
-        document.getElementById(`consumption-${type.slice(0, -1)}-count`).textContent = `${set.size} selected`;
+        
+        if(type === 'branches') {
+            state.reportSelectedBranches = new Set(set);
+            document.getElementById('consumption-branch-count').textContent = `${set.size} selected`;
+        } else if(type === 'sections') {
+            state.reportSelectedSections = new Set(set);
+            document.getElementById('consumption-section-count').textContent = `${set.size} selected`;
+        } else if(type === 'items') {
+            state.reportSelectedItems = new Set(set);
+            document.getElementById('consumption-item-count').textContent = `${set.size} selected`;
+        } else if(type === 'stock-level-items') {
+             // Filter the stock view
+             const selectedItems = Array.from(set).map(id => findByKey(state.items, 'code', id));
+             renderItemCentricStockView(selectedItems.length > 0 ? selectedItems : state.items);
+        } else if(type === 'stock-level-branches') {
+             // We need to pass the selected branches to the renderer. 
+             // Since renderItemCentricStockView usually pulls from state.currentUser or all,
+             // we can temporarily override or pass as arg.
+             const selectedBranches = Array.from(set).map(id => findByKey(state.branches, 'branchCode', id));
+             renderItemCentricStockView(state.items, selectedBranches);
+        } else if (type === 'item-inquiry') {
+             if(set.size > 0) {
+                 // Take the first one for inquiry
+                 const itemId = Array.from(set)[0];
+                 const item = findByKey(state.items, 'code', itemId);
+                 if(item) {
+                     document.getElementById('btn-open-item-inquiry').querySelector('span').textContent = item.name;
+                     renderItemInquiry(item.code.toLowerCase());
+                 }
+             }
+        }
+        
         closeModal();
     }
 
@@ -1175,13 +1301,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const type = state.currentSelectionModal.type;
         const lowerFilter = filter.toLowerCase();
         let data = [];
-        if(type === 'branches') data = state.branches.map(b => ({id: b.branchCode, name: b.branchName}));
-        if(type === 'sections') data = state.sections.map(s => ({id: s.sectionCode, name: s.sectionName}));
-        if(type === 'items') data = state.items.map(i => ({id: i.code, name: i.name}));
+        
+        if(type.includes('branches')) data = state.branches.map(b => ({id: b.branchCode, name: b.branchName}));
+        if(type.includes('sections')) data = state.sections.map(s => ({id: s.sectionCode, name: s.sectionName}));
+        if(type.includes('items') || type === 'item-inquiry') data = state.items.map(i => ({id: i.code, name: i.name}));
         
         data.filter(i => i.name.toLowerCase().includes(lowerFilter)).forEach(item => {
             const div = document.createElement('div'); div.className = 'modal-item';
             div.innerHTML = `<input type="checkbox" data-id="${item.id}" ${state.currentSelectionModal.tempSelections.has(item.id) ? 'checked' : ''}><label>${item.name}</label>`;
+            div.addEventListener('click', e => {
+                 if (e.target.type !== 'checkbox') {
+                     const cb = div.querySelector('input[type="checkbox"]');
+                     cb.checked = !cb.checked;
+                     cb.dispatchEvent(new Event('change', { bubbles: true }));
+                 }
+            });
             listEl.appendChild(div);
         });
     }
@@ -1189,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadAndRenderBackups() {
         const container = document.getElementById('backup-list-container');
         container.innerHTML = '<div class="spinner"></div>';
-        const res = await postData('listBackups', {}, null);
+        const res = await postData('listBackups', {}, null, 'Loading...');
         if(res && res.data) {
             state.backups = res.data;
             container.innerHTML = state.backups.length ? `<table><tbody>${state.backups.map(b => `<tr><td>${b.name}</td><td>${new Date(b.dateCreated).toLocaleDateString()}</td><td><button class="danger small btn-restore" data-url="${b.url}">Restore</button></td></tr>`).join('')}</tbody></table>` : '<p>No backups found.</p>';
@@ -1197,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadAutoBackupSettings() {
-        const res = await postData('getAutomaticBackupStatus', {}, null);
+        const res = await postData('getAutomaticBackupStatus', {}, null, 'Loading...');
         if(res && res.data) {
             document.getElementById('auto-backup-toggle').checked = res.data.enabled;
             document.getElementById('auto-backup-frequency-container').style.display = res.data.enabled ? 'block' : 'none';
@@ -1208,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const enabled = document.getElementById('auto-backup-toggle').checked;
         const frequency = document.getElementById('auto-backup-frequency').value;
         document.getElementById('auto-backup-frequency-container').style.display = enabled ? 'block' : 'none';
-        await postData('setAutomaticBackup', { enabled, frequency }, null);
+        await postData('setAutomaticBackup', { enabled, frequency }, null, 'Updating...');
         showToast('Backup settings updated', 'success');
     }
 
@@ -1223,7 +1357,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileId = e.target.dataset.fileId;
         const sheets = Array.from(document.querySelectorAll('#restore-sheet-list input:checked')).map(i => i.value);
         if(document.getElementById('restore-confirmation-input').value === 'RESTORE') {
-            await postData('restoreFromBackup', { backupFileId: fileId, sheetsToRestore: sheets }, e.target);
+            await postData('restoreFromBackup', { backupFileId: fileId, sheetsToRestore: sheets }, e.target, 'Restoring...');
             showToast('Restored!', 'success'); closeModal(); reloadDataAndRefreshUI();
         }
     }
@@ -1270,7 +1404,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveInvoiceChanges(e) {
         const btn = e.currentTarget;
         const payload = { batchId: btn.dataset.batchId, invoiceNumber: document.getElementById('edit-invoice-number').value, notes: document.getElementById('edit-invoice-notes').value, items: state.currentEditingPOList };
-        if(await postData('editInvoice', payload, btn)) { showToast('Invoice updated', 'success'); closeModal(); reloadDataAndRefreshUI(); }
+        if(await postData('editInvoice', payload, btn, 'Saving...')) { showToast('Invoice updated', 'success'); closeModal(); reloadDataAndRefreshUI(); }
     }
 
     init();
