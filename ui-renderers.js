@@ -658,11 +658,439 @@ function renderUnifiedConsumptionReport() {
     if(btnExport) btnExport.disabled = false;
 }
 
-// ... (Document Generators remain the same, just keeping signatures) ...
-const generateReceiveDocument = (data) => { const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'DELETED' }; const branch = findByKey(state.branches, 'branchCode', data.branchCode) || { branchName: 'DELETED' }; let itemsHtml = '', totalValue = 0; data.items.forEach(item => { const itemTotal = item.quantity * item.cost; totalValue += itemTotal; itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName}</td><td>${item.quantity.toFixed(2)}</td><td>${item.cost.toFixed(2)} EGP</td><td>${itemTotal.toFixed(2)} EGP</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>Goods Received Note</h2><p><strong>GRN No:</strong> ${data.batchId}</p><p><strong>${_t('table_h_invoice_no')}:</strong> ${data.invoiceNumber}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><p><strong>${_t('supplier')}:</strong> ${supplier.name} (${supplier.supplierCode || ''})</p><p><strong>${_t('receive_stock')} at:</strong> ${branch.branchName} (${branch.branchCode || ''})</p><hr><h3>${_t('items_to_be_received')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_cost_per_unit')}</th><th>${_t('table_h_total')}</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot><tr><td colspan="4" style="text-align:right;font-weight:bold;">${_t('total_value')}</td><td style="font-weight:bold;">${totalValue.toFixed(2)} EGP</td></tr></tfoot></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Signature:</strong> _________________________</p></div>`; printContent(content); };
-const generateTransferDocument = (data) => { const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'DELETED' }; const toBranch = findByKey(state.branches, 'branchCode', data.toBranchCode) || { branchName: 'DELETED' }; let itemsHtml = ''; data.items.forEach(item => { const fullItem = findByKey(state.items, 'code', item.itemCode) || { code: 'N/A', name: 'DELETED', unit: 'N/A' }; itemsHtml += `<tr><td>${fullItem.code || item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td>${parseFloat(item.quantity).toFixed(2)}</td><td>${fullItem.unit}</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>${_t('internal_transfer')} Order</h2><p><strong>Order ID:</strong> ${data.batchId}</p><p><strong>${_t('reference')}:</strong> ${data.ref}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><hr><p><strong>${_t('from_branch')}:</strong> ${fromBranch.branchName} (${fromBranch.branchCode || ''})</p><p><strong>${_t('to_branch')}:</strong> ${toBranch.branchName} (${toBranch.branchCode || ''})</p><hr><h3>${_t('items_to_be_transferred')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_unit')}</th></tr></thead><tbody>${itemsHtml}</tbody></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Sender:</strong> _________________</p><p><strong>Receiver:</strong> _________________</p></div>`; printContent(content); };
-const generateIssueDocument = (data) => { const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'DELETED' }; const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'DELETED' }; let itemsHtml = ''; data.items.forEach(item => { const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'DELETED', unit: 'N/A' }; itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td>${item.quantity.toFixed(2)}</td><td>${fullItem.unit}</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>${_t('issue_stock')} Note</h2><p><strong>${_t('issue_ref_no')}:</strong> ${data.ref}</p><p><strong>Batch ID:</strong> ${data.batchId}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><hr><p><strong>${_t('from_branch')}:</strong> ${fromBranch.branchName} (${fromBranch.branchCode || ''})</p><p><strong>${_t('to_section')}:</strong> ${toSection.sectionName} (${toSection.sectionCode || ''})</p><hr><h3>${_t('items_to_be_issued')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_unit')}</th></tr></thead><tbody>${itemsHtml}</tbody></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Issued By:</strong> _________________</p><p><strong>Received By:</strong> _________________</p></div>`; printContent(content); };
-const generatePaymentVoucher = (data) => { const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'DELETED' }; let invoicesHtml = ''; data.payments.forEach(p => { invoicesHtml += `<tr><td>${p.invoiceNumber}</td><td>${p.amount.toFixed(2)} EGP</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>Payment Voucher</h2><p><strong>Voucher ID:</strong> ${data.payments[0].paymentId}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><hr><p><strong>Paid To:</strong> ${supplier.name} (${supplier.supplierCode || ''})</p><p><strong>${_t('table_h_amount')}:</strong> ${data.totalAmount.toFixed(2)} EGP</p><p><strong>Method:</strong> ${data.method}</p><hr><h3>Payment Allocation</h3><table><thead><tr><th>${_t('table_h_invoice_no')}</th><th>${_t('table_h_amount_to_pay')}</th></tr></thead><tbody>${invoicesHtml}</tbody></table><br><p><strong>Signature:</strong> _________________</p></div>`; printContent(content); };
-const generatePODocument = (data) => { const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'DELETED' }; let itemsHtml = '', totalValue = 0; data.items.forEach(item => { const itemDetails = findByKey(state.items, 'code', item.itemCode) || {name: "N/A"}; const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); totalValue += itemTotal; itemsHtml += `<tr><td>${item.itemCode}</td><td>${itemDetails.name}</td><td>${(parseFloat(item.quantity) || 0).toFixed(2)}</td><td>${(parseFloat(item.cost) || 0).toFixed(2)} EGP</td><td>${itemTotal.toFixed(2)} EGP</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>${_t('po')}</h2><p><strong>${_t('table_h_po_no')}:</strong> ${data.poId || data.batchId}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><p><strong>${_t('supplier')}:</strong> ${supplier.name} (${supplier.supplierCode || ''})</p><hr><h3>${_t('items_to_order')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_cost_per_unit')}</th><th>${_t('table_h_total')}</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot><tr><td colspan="4" style="text-align:right;font-weight:bold;">${_t('total_value')}</td><td style="font-weight:bold;">${totalValue.toFixed(2)} EGP</td></tr></tfoot></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Authorized By:</strong> ${data.createdBy || state.currentUser.Name}</p></div>`; printContent(content); };
-const generateReturnDocument = (data) => { const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'DELETED' }; const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'DELETED' }; let itemsHtml = '', totalValue = 0; data.items.forEach(item => { const itemTotal = item.quantity * item.cost; totalValue += itemTotal; itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName}</td><td>${item.quantity.toFixed(2)}</td><td>${item.cost.toFixed(2)} EGP</td><td>${itemTotal.toFixed(2)} EGP</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>${_t('return_to_supplier')} Note</h2><p><strong>${_t('credit_note_ref')}:</strong> ${data.ref}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><p><strong>Returned To:</strong> ${supplier.name}</p><p><strong>Returned From:</strong> ${branch.branchName}</p><hr><h3>${_t('items_to_return')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_cost_per_unit')}</th><th>${_t('table_h_total')}</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot><tr><td colspan="4" style="text-align:right;font-weight:bold;">${_t('total_value')}</td><td style="font-weight:bold;">${totalValue.toFixed(2)} EGP</td></tr></tfoot></table><hr><p><strong>Reason:</strong> ${data.notes || 'N/A'}</p></div>`; printContent(content); };
-const generateRequestIssueDocument = (data) => { const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'DELETED' }; const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'DELETED' }; let itemsHtml = ''; data.items.forEach(item => { const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'DELETED', unit: 'N/A' }; itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td>${(item.quantity || 0).toFixed(2)}</td><td>${fullItem.unit}</td></tr>`; }); const content = `<div class="printable-document card" dir="${state.currentLanguage === 'ar' ? 'rtl' : 'ltr'}"><h2>DRAFT ${_t('issue_stock')} Note (from Request)</h2><p><strong>${_t('table_h_req_id')}:</strong> ${data.ref}</p><p><strong>${_t('table_h_date')}:</strong> ${new Date(data.date).toLocaleString()}</p><hr><p><strong>${_t('from_branch')}:</strong> ${fromBranch.branchName} (${fromBranch.branchCode || ''})</p><p><strong>${_t('to_section')}:</strong> ${toSection.sectionName} (${toSection.sectionCode || ''})</p><hr><h3>${_t('items_to_be_issued')}</h3><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('item')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_unit')}</th></tr></thead><tbody>${itemsHtml}</tbody></table><hr><p><strong>${_t('notes_optional')}:</strong> ${data.notes || 'N/A'}</p><br><p><strong>Issued By:</strong> _________________</p><p><strong>Received By:</strong> _________________</p></div>`; printContent(content); };
+// --- MODERN DOCUMENT GENERATORS ---
+
+// Helper to build the common header structure
+const getDocumentHeader = (title, id, status = '') => {
+    return `
+    <div class="doc-header">
+        <div class="doc-brand">
+            <h1>PACKING STOCK</h1>
+            <p>Warehouse Management System</p>
+        </div>
+        <div class="doc-title">
+            <h2>${title}</h2>
+            <div class="status">${status || id}</div>
+        </div>
+    </div>`;
+};
+
+const generateReceiveDocument = (data) => {
+    const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown', contact: '' };
+    const branch = findByKey(state.branches, 'branchCode', data.branchCode) || { branchName: 'Unknown' };
+    
+    let itemsHtml = '', totalValue = 0;
+    data.items.forEach(item => {
+        const itemTotal = item.quantity * item.cost;
+        totalValue += itemTotal;
+        itemsHtml += `<tr>
+            <td>${item.itemCode}</td>
+            <td>${item.itemName}</td>
+            <td style="text-align:center">${item.quantity.toFixed(2)}</td>
+            <td style="text-align:right">${item.cost.toFixed(2)}</td>
+            <td style="text-align:right">${itemTotal.toFixed(2)}</td>
+        </tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Goods Received Note', data.batchId, 'RECEIVED')}
+        
+        <div class="doc-info-grid">
+            <div class="info-col">
+                <span class="info-label">From Supplier</span>
+                <div class="info-value">
+                    <strong>${supplier.name}</strong><br>
+                    ${supplier.contact || ''}<br>
+                    ID: ${supplier.supplierCode || data.supplierCode}
+                </div>
+            </div>
+            <div class="info-col">
+                <span class="info-label">Received At</span>
+                <div class="info-value">
+                    <strong>${branch.branchName}</strong><br>
+                    Branch ID: ${branch.branchCode || data.branchCode}
+                </div>
+            </div>
+            <div class="info-col" style="flex: 0 0 200px;">
+                <table class="meta-table">
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
+                    <tr><td class="label">Invoice #:</td><td class="val">${data.invoiceNumber}</td></tr>
+                    <tr><td class="label">PO Ref:</td><td class="val">${data.poId || 'N/A'}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-table-container">
+            <table class="doc-table">
+                <thead>
+                    <tr><th>Code</th><th>Item Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr>
+                </thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+        </div>
+
+        <div class="doc-totals">
+            <div class="totals-box">
+                <div class="total-row final">
+                    <span>Total Value:</span>
+                    <span>${totalValue.toFixed(2)} EGP</span>
+                </div>
+            </div>
+        </div>
+
+        ${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}
+
+        <div class="doc-signatures">
+            <div class="signature-box">Received By</div>
+            <div class="signature-box">Authorized Signature</div>
+        </div>
+    </div>`;
+    printContent(content);
+};
+
+const generateTransferDocument = (data) => {
+    const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
+    const toBranch = findByKey(state.branches, 'branchCode', data.toBranchCode) || { branchName: 'Unknown' };
+    
+    let itemsHtml = '';
+    data.items.forEach(item => {
+        const fullItem = findByKey(state.items, 'code', item.itemCode) || { unit: 'Units' };
+        itemsHtml += `<tr>
+            <td>${item.itemCode}</td>
+            <td>${item.itemName || fullItem.name}</td>
+            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
+            <td style="text-align:center">${fullItem.unit}</td>
+        </tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Internal Transfer', data.batchId, data.Status || 'TRANSFER')}
+        
+        <div class="doc-info-grid">
+            <div class="info-col">
+                <span class="info-label">From Branch (Source)</span>
+                <div class="info-value">
+                    <strong>${fromBranch.branchName}</strong><br>
+                    ID: ${fromBranch.branchCode}
+                </div>
+            </div>
+            <div class="info-col">
+                <span class="info-label">To Branch (Destination)</span>
+                <div class="info-value">
+                    <strong>${toBranch.branchName}</strong><br>
+                    ID: ${toBranch.branchCode}
+                </div>
+            </div>
+            <div class="info-col" style="flex: 0 0 200px;">
+                <table class="meta-table">
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
+                    <tr><td class="label">Ref #:</td><td class="val">${data.ref}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-table-container">
+            <table class="doc-table">
+                <thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Quantity</th><th style="text-align:center">Unit</th></tr></thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+        </div>
+
+        ${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}
+
+        <div class="doc-signatures">
+            <div class="signature-box">Sent By</div>
+            <div class="signature-box">Received By</div>
+        </div>
+    </div>`;
+    printContent(content);
+};
+
+const generateIssueDocument = (data) => {
+    const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
+    const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
+    
+    let itemsHtml = '';
+    data.items.forEach(item => {
+        const fullItem = findByKey(state.items, 'code', item.itemCode) || { unit: 'Units' };
+        itemsHtml += `<tr>
+            <td>${item.itemCode}</td>
+            <td>${item.itemName || fullItem.name}</td>
+            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
+            <td style="text-align:center">${fullItem.unit}</td>
+        </tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Stock Issue Note', data.batchId)}
+        
+        <div class="doc-info-grid">
+            <div class="info-col">
+                <span class="info-label">Issued From</span>
+                <div class="info-value">
+                    <strong>${fromBranch.branchName}</strong>
+                </div>
+            </div>
+            <div class="info-col">
+                <span class="info-label">Issued To Section</span>
+                <div class="info-value">
+                    <strong>${toSection.sectionName}</strong>
+                </div>
+            </div>
+            <div class="info-col" style="flex: 0 0 200px;">
+                <table class="meta-table">
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
+                    <tr><td class="label">Ref #:</td><td class="val">${data.ref}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-table-container">
+            <table class="doc-table">
+                <thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Quantity</th><th style="text-align:center">Unit</th></tr></thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+        </div>
+
+        ${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}
+
+        <div class="doc-signatures">
+            <div class="signature-box">Issued By</div>
+            <div class="signature-box">Received By</div>
+        </div>
+    </div>`;
+    printContent(content);
+};
+
+const generatePODocument = (data) => {
+    const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
+    let itemsHtml = '', totalValue = 0;
+    
+    data.items.forEach(item => {
+        const itemDetails = findByKey(state.items, 'code', item.itemCode) || {name: "Unknown"};
+        const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0);
+        totalValue += itemTotal;
+        itemsHtml += `<tr>
+            <td>${item.itemCode}</td>
+            <td>${itemDetails.name}</td>
+            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
+            <td style="text-align:right">${parseFloat(item.cost).toFixed(2)}</td>
+            <td style="text-align:right">${itemTotal.toFixed(2)}</td>
+        </tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Purchase Order', data.poId || data.batchId, data.Status || 'DRAFT')}
+        
+        <div class="doc-info-grid">
+            <div class="info-col">
+                <span class="info-label">Vendor</span>
+                <div class="info-value">
+                    <strong>${supplier.name}</strong><br>
+                    ${supplier.contact || ''}
+                </div>
+            </div>
+            <div class="info-col" style="flex: 0 0 200px;">
+                <table class="meta-table">
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
+                    <tr><td class="label">PO #:</td><td class="val">${data.poId || data.batchId}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-table-container">
+            <table class="doc-table">
+                <thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+        </div>
+
+        <div class="doc-totals">
+            <div class="totals-box">
+                <div class="total-row final">
+                    <span>Total Amount:</span>
+                    <span>${totalValue.toFixed(2)} EGP</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="doc-notes">
+            <strong>Notes:</strong> ${data.notes || 'None'}
+        </div>
+
+        <div class="doc-signatures">
+            <div class="signature-box">Authorized By: ${data.createdBy || state.currentUser.Name}</div>
+            <div class="signature-box">Supplier Acceptance</div>
+        </div>
+    </div>`;
+    printContent(content);
+};
+
+const generatePaymentVoucher = (data) => {
+    const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
+    let invoicesHtml = '';
+    data.payments.forEach(p => {
+        invoicesHtml += `<tr><td>${p.invoiceNumber}</td><td style="text-align:right">${p.amount.toFixed(2)} EGP</td></tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Payment Voucher', data.payments[0].paymentId)}
+        
+        <div class="doc-info-grid">
+            <div class="info-col">
+                <span class="info-label">Paid To</span>
+                <div class="info-value"><strong>${supplier.name}</strong></div>
+            </div>
+            <div class="info-col">
+                <span class="info-label">Payment Method</span>
+                <div class="info-value">${data.method}</div>
+            </div>
+            <div class="info-col" style="flex: 0 0 200px;">
+                <table class="meta-table">
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-table-container">
+            <h4 style="margin: 0 0 10px 0; color: #555;">Payment Allocation</h4>
+            <table class="doc-table">
+                <thead><tr><th>Invoice #</th><th style="text-align:right">Amount Paid</th></tr></thead>
+                <tbody>${invoicesHtml}</tbody>
+            </table>
+        </div>
+
+        <div class="doc-totals">
+            <div class="totals-box">
+                <div class="total-row final">
+                    <span>Total Paid:</span>
+                    <span>${data.totalAmount.toFixed(2)} EGP</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="doc-signatures">
+            <div class="signature-box">Prepared By</div>
+            <div class="signature-box">Approved By</div>
+        </div>
+    </div>`;
+    printContent(content);
+};
+
+const generateReturnDocument = (data) => {
+    const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
+    const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
+    
+    let itemsHtml = '', totalValue = 0;
+    data.items.forEach(item => {
+        const itemTotal = item.quantity * item.cost;
+        totalValue += itemTotal;
+        itemsHtml += `<tr>
+            <td>${item.itemCode}</td>
+            <td>${item.itemName}</td>
+            <td style="text-align:center">${item.quantity.toFixed(2)}</td>
+            <td style="text-align:right">${item.cost.toFixed(2)}</td>
+            <td style="text-align:right">${itemTotal.toFixed(2)}</td>
+        </tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Debit Note / Return', data.ref)}
+        
+        <div class="doc-info-grid">
+            <div class="info-col">
+                <span class="info-label">Returned To</span>
+                <div class="info-value"><strong>${supplier.name}</strong></div>
+            </div>
+            <div class="info-col">
+                <span class="info-label">Returned From</span>
+                <div class="info-value"><strong>${branch.branchName}</strong></div>
+            </div>
+            <div class="info-col" style="flex: 0 0 200px;">
+                <table class="meta-table">
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-table-container">
+            <table class="doc-table">
+                <thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Cost</th><th style="text-align:right">Total</th></tr></thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+        </div>
+
+        <div class="doc-totals">
+            <div class="totals-box">
+                <div class="total-row final">
+                    <span>Total Value:</span>
+                    <span>${totalValue.toFixed(2)} EGP</span>
+                </div>
+            </div>
+        </div>
+
+        ${data.notes ? `<div class="doc-notes"><strong>Reason:</strong> ${data.notes}</div>` : ''}
+        
+        <div class="doc-signatures">
+            <div class="signature-box">Returned By</div>
+            <div class="signature-box">Supplier Signature</div>
+        </div>
+    </div>`;
+    printContent(content);
+};
+
+const generateRequestIssueDocument = (data) => {
+    const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
+    const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
+    
+    let itemsHtml = '';
+    data.items.forEach(item => {
+        const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
+        itemsHtml += `<tr>
+            <td>${item.itemCode}</td>
+            <td>${item.itemName || fullItem.name}</td>
+            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
+            <td style="text-align:center">${fullItem.unit}</td>
+        </tr>`;
+    });
+
+    const content = `
+    <div class="printable-document">
+        ${getDocumentHeader('Stock Issue (Draft)', data.ref, 'DRAFT')}
+        
+        <div class="doc-info-grid">
+            <div class="info-col">
+                <span class="info-label">From Branch</span>
+                <div class="info-value"><strong>${fromBranch.branchName}</strong></div>
+            </div>
+            <div class="info-col">
+                <span class="info-label">To Section</span>
+                <div class="info-value"><strong>${toSection.sectionName}</strong></div>
+            </div>
+            <div class="info-col" style="flex: 0 0 200px;">
+                <table class="meta-table">
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="doc-table-container">
+            <table class="doc-table">
+                <thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:center">Unit</th></tr></thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+        </div>
+
+        <div class="doc-notes">
+            <p><em>This is a draft generated from an Item Request approval.</em></p>
+            ${data.notes ? `<strong>Notes:</strong> ${data.notes}` : ''}
+        </div>
+    </div>`;
+    printContent(content);
+};
