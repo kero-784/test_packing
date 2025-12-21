@@ -1,4 +1,6 @@
-const CACHE_NAME = 'stockwise-v1';
+--- START OF FILE sw.js ---
+
+const CACHE_NAME = 'stockwise-v2'; // Changed from v1 to v2 to force update
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -16,6 +18,7 @@ const ASSETS_TO_CACHE = [
 
 // Install Event
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Forces the new service worker to take over immediately
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
@@ -34,6 +37,7 @@ self.addEventListener('activate', (event) => {
       }));
     })
   );
+  return self.clients.claim(); // Immediately control all open clients
 });
 
 // Fetch Event (Network first, fall back to cache)
@@ -44,7 +48,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For other assets, try network first, then cache (good for development updates)
+  // For other assets, try network first, then cache
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request);
