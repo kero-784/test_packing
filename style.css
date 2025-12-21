@@ -1,6 +1,6 @@
+--- START OF FILE style.css ---
 
-
-/* --- MODERN UI REDESIGN V6 (Final Print & Layout Fixes) --- */
+/* --- MODERN UI REDESIGN V7 (Professional Print & Layout) --- */
 
 :root {
     --primary-color: #4A90E2;
@@ -486,79 +486,246 @@ html[dir="rtl"] input:checked + .slider:before { transform: translateX(-26px); }
     }
 }
 
-/*
-====================================
-===== PRINT STYLES (CRITICAL) =====
-====================================
-*/
+/* =========================================
+   ===== ADVANCED PRINT DESIGN (V7) =====
+   ========================================= */
 @media print {
-    /* Hide the entire application UI */
-    .app-container,
-    .mobile-header,
-    .sidebar,
-    .login-box,
-    .modal-overlay,
-    #toast-container,
-    .no-print {
+    /* 1. Reset & Hiding */
+    .app-container, .mobile-header, .sidebar, .login-box, .modal-overlay, #toast-container, .no-print {
         display: none !important;
-        opacity: 0;
-        width: 0;
-        height: 0;
-        overflow: hidden;
     }
-    
-    /* Ensure body acts as a canvas for the print area */
+
     body {
         margin: 0;
         padding: 0;
         background-color: white;
+        font-family: 'Inter', sans-serif;
+        color: #1a1a1a;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
         height: auto;
         overflow: visible;
         width: 100%;
     }
-    
-    /* Reveal and style the print area */
+
     #print-area {
         display: block !important;
-        visibility: visible;
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
-        margin: 0;
-        padding: 20px;
-        background: white;
+        height: auto;
         z-index: 9999;
-        font-size: 12pt;
-        color: black;
+        background: white;
+        padding: 20px; 
+        visibility: visible;
     }
     
-    /* Ensure all children of print area are visible */
     #print-area * {
         visibility: visible;
-        color: black !important;
-        box-shadow: none !important;
     }
-    
+
+    /* 2. Document Container */
     .printable-document {
+        width: 100%;
+        max-width: 210mm; /* A4 width */
+        margin: 0 auto;
+        padding: 20px;
+        box-sizing: border-box;
         border: none !important;
         box-shadow: none !important;
-        width: 100%;
-        margin: 0;
-        padding: 0;
     }
-    
-    /* Improve Table Printing */
-    table {
-        width: 100% !important;
+
+    /* 3. Header Design */
+    .doc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+        border-bottom: 2px solid var(--primary-color);
+    }
+
+    .doc-brand h1 {
+        font-size: 28px;
+        color: var(--primary-color);
+        margin: 0 0 5px 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .doc-brand p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--text-light-color);
+    }
+
+    .doc-title {
+        text-align: right;
+    }
+
+    .doc-title h2 {
+        font-size: 24px;
+        margin: 0 0 5px 0;
+        color: #1a1a1a;
+    }
+
+    .doc-title .status {
+        font-size: 14px;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 4px;
+        background-color: #eee;
+        display: inline-block;
+    }
+
+    /* 4. Info Grid (From/To/Meta) */
+    .doc-info-grid {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        gap: 30px;
+    }
+
+    .info-col {
+        flex: 1;
+    }
+
+    .info-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #7f8c8d;
+        font-weight: 700;
+        margin-bottom: 8px;
+        display: block;
+        letter-spacing: 0.5px;
+    }
+
+    .info-value {
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.5;
+        color: #1a1a1a;
+    }
+
+    .meta-table {
+        width: 100%;
         border-collapse: collapse;
     }
-    
-    th, td {
-        border: 1px solid #ccc;
-        padding: 8px;
+
+    .meta-table td {
+        padding: 4px 0;
+        font-size: 14px;
+        border: none;
     }
-    
-    /* Page break handling */
-    tr { page-break-inside: avoid; }
+
+    .meta-table .label {
+        color: #7f8c8d;
+        font-weight: 500;
+        width: 100px;
+    }
+
+    .meta-table .val {
+        font-weight: 600;
+        text-align: right;
+    }
+
+    /* 5. Modern Data Table */
+    .doc-table-container {
+        margin-bottom: 30px;
+    }
+
+    table.doc-table {
+        width: 100% !important;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+
+    table.doc-table th {
+        background-color: #f3f4f6 !important;
+        color: #374151;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 11px;
+        padding: 12px 8px;
+        border-bottom: 2px solid #e5e7eb;
+        text-align: left;
+    }
+
+    table.doc-table td {
+        padding: 12px 8px;
+        font-size: 13px;
+        border-bottom: 1px solid #e5e7eb;
+        color: #374151;
+    }
+
+    table.doc-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* 6. Totals Section */
+    .doc-totals {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+
+    .totals-box {
+        width: 250px;
+        background-color: #f9fafb;
+        border-radius: 8px;
+        padding: 15px;
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .total-row.final {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #ddd;
+        font-weight: 800;
+        font-size: 16px;
+        color: var(--primary-color);
+    }
+
+    /* 7. Notes & Footer */
+    .doc-notes {
+        margin-top: 30px;
+        padding: 15px;
+        background-color: #fdfdfd;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #555;
+    }
+
+    .doc-signatures {
+        margin-top: 60px;
+        display: flex;
+        justify-content: space-between;
+        page-break-inside: avoid;
+    }
+
+    .signature-box {
+        width: 40%;
+        border-top: 1px solid #ccc;
+        padding-top: 10px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    /* RTL Specifics for Print */
+    html[dir="rtl"] .doc-header { flex-direction: row-reverse; }
+    html[dir="rtl"] .doc-title { text-align: left; }
+    html[dir="rtl"] .doc-info-grid { flex-direction: row-reverse; }
+    html[dir="rtl"] table.doc-table th, html[dir="rtl"] table.doc-table td { text-align: right; }
+    html[dir="rtl"] .meta-table .val { text-align: left; }
+    html[dir="rtl"] .doc-totals { justify-content: flex-start; }
 }
