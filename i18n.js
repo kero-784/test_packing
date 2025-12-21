@@ -1,4 +1,4 @@
---- START OF FILE i18n.js ---
+
 
 const translations = {
     'en': {
