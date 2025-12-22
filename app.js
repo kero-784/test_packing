@@ -1,7 +1,7 @@
 // --- START OF FILE app.js ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Enhanced Logger
+    // 1. Enhanced Logger
     window.Logger = {
         info: (msg) => console.log(`%c[INFO] ${msg}`, 'color: blue'),
         error: (msg, err) => console.error(`%c[ERROR] ${msg}`, 'color: red', err || ''),
@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
     const btnLogout = document.getElementById('btn-logout');
     const globalRefreshBtn = document.getElementById('global-refresh-button');
-    const mainContent = document.querySelector('.main-content');
     const installBtn = document.getElementById('btn-install-pwa');
 
     // Language Switchers
@@ -70,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     installBtn.style.display = 'none';
                     deferredPrompt.prompt();
                     deferredPrompt.userChoice.then((choiceResult) => {
-                        if (choiceResult.outcome === 'accepted') Logger.info('User accepted A2HS');
                         deferredPrompt = null;
                     });
                 });
@@ -121,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Logger.info('Initializing App UI...');
         setupRoleBasedNav();
         attachEventListeners();
-        attachSubNavListeners(); // Updated Sub-Nav Logic
+        attachSubNavListeners(); // Fixed Sub-Nav Logic
         setupPaginationListeners();
         
         // Find default view
@@ -141,13 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- NAVIGATION LOGIC ---
     window.showView = (viewId, subViewId = null) => {
         try {
+            // 1. Hide all main views
             document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
             document.querySelectorAll('#main-nav a').forEach(link => link.classList.remove('active'));
 
+            // 2. Show requested main view
             const viewToShow = document.getElementById(`view-${viewId}`);
             if(!viewToShow) return;
             viewToShow.classList.add('active');
             
+            // 3. Highlight sidebar
             const activeLink = document.querySelector(`[data-view="${viewId}"]`);
             if (activeLink) {
                 activeLink.classList.add('active');
@@ -162,12 +163,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Sub-view logic
+            // 4. Handle Sub-views (Tabs) initialization
+            // If the view has tabs, ensure one is active
             if (viewToShow.querySelector('.sub-nav')) {
                 let targetSubViewId = subViewId;
+                
+                // If no specific tab requested, check if one is already active (preserve state)
+                // or default to the first one.
                 if (!targetSubViewId) {
-                    const firstVisibleTab = viewToShow.querySelector('.sub-nav-item:not([style*="display: none"])');
-                    if (firstVisibleTab) targetSubViewId = firstVisibleTab.dataset.subview;
+                    const activeBtn = viewToShow.querySelector('.sub-nav-item.active');
+                    if (activeBtn) {
+                        targetSubViewId = activeBtn.dataset.subview;
+                    } else {
+                        const firstBtn = viewToShow.querySelector('.sub-nav-item:not([style*="display: none"])');
+                        if (firstBtn) targetSubViewId = firstBtn.dataset.subview;
+                    }
                 }
                 
                 if (targetSubViewId) {
@@ -176,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subViewBtn = viewToShow.querySelector(`[data-subview="${targetSubViewId}"]`);
                     if(subViewBtn) subViewBtn.classList.add('active');
                     
-                    // Activate View
+                    // Activate View Content
                     viewToShow.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active'));
                     const subViewContainer = viewToShow.querySelector(`#subview-${targetSubViewId}`);
                     if (subViewContainer) subViewContainer.classList.add('active');
@@ -239,19 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('fin-adj-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     
-                    if(!userCan('opStockAdjustment')) {
-                        const stockAdjTab = document.querySelector('[data-subview="stock-adj"]');
-                        const stockAdjRepTab = document.querySelector('[data-subview="stock-adj-report"]');
-                        if(stockAdjTab) stockAdjTab.style.display = 'none';
-                        if(stockAdjRepTab) stockAdjRepTab.style.display = 'none';
-                    }
-                    if(!userCan('opFinancialAdjustment')) {
-                        const suppAdjTab = document.querySelector('[data-subview="supplier-adj"]');
-                        const suppAdjRepTab = document.querySelector('[data-subview="supplier-adj-report"]');
-                        if(suppAdjTab) suppAdjTab.style.display = 'none';
-                        if(suppAdjRepTab) suppAdjRepTab.style.display = 'none';
-                    }
-
                     renderAdjustmentListTable();
                     renderStockAdjustmentReport();
                     renderSupplierAdjustmentReport();
@@ -266,13 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      renderMyRequests(); 
                      renderPendingRequests();
                      renderIssueListTable();
-                     
-                     const branchCount = document.getElementById('consumption-branch-count');
-                     if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
-                     const sectionCount = document.getElementById('consumption-section-count');
-                     if(sectionCount) sectionCount.textContent = `${state.reportSelectedSections.size} selected`;
-                     const itemCount = document.getElementById('consumption-item-count');
-                     if(itemCount) itemCount.textContent = `${state.reportSelectedItems.size} selected`;
                      break;
 
                 case 'financials':
@@ -311,17 +301,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const txTypeOptions = txTypes.map(t => ({'type': t, 'name': _t(t.replace(/_/g,''))}));
                     populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
                     
-                    state.pagination['table-transaction-history'].page = 1;
-                    const txStartDate = document.getElementById('tx-filter-start-date');
-                    const txEndDate = document.getElementById('tx-filter-end-date');
-                    const txType = document.getElementById('tx-filter-type');
                     const txBranch = document.getElementById('tx-filter-branch');
                     const txSearch = document.getElementById('transaction-search');
-
                     renderTransactionHistory({
-                        startDate: txStartDate ? txStartDate.value : null,
-                        endDate: txEndDate ? txEndDate.value : null,
-                        type: txType ? txType.value : null,
+                        startDate: null, endDate: null, type: null, 
                         branch: txBranch ? txBranch.value : null,
                         searchTerm: txSearch ? txSearch.value : null
                     }); 
@@ -426,19 +409,21 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
 
             const parentContext = btn.closest('.view') || btn.closest('.modal-body');
-            if (!parentContext) return;
+            if (!parentContext) {
+                Logger.debug("Tab click ignored: No parent context found.");
+                return;
+            }
 
             const subviewId = btn.dataset.subview;
             if(!subviewId) return;
 
-            // 1. UI Toggle Only
+            // 1. UI Toggle Logic
             parentContext.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active'));
             parentContext.querySelectorAll('.sub-view').forEach(v => v.classList.remove('active'));
 
             btn.classList.add('active');
             
-            // Search for target view
-            // ID must be unique
+            // Search for target view using ID
             const targetView = document.getElementById(`subview-${subviewId}`);
             if (targetView) {
                 targetView.classList.add('active');
@@ -447,7 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        document.body.addEventListener('click', handleSubNavClick);
+        // Attach to document to catch all current and future elements
+        document.addEventListener('click', handleSubNavClick);
     }
 
     // --- NOTIFICATION BADGE UPDATE LOGIC ---
@@ -515,7 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const viewId = link.dataset.view;
                 showView(viewId);
                 
-                // Mobile Menu Logic: Close on selection
                 if (window.innerWidth <= 768 && sidebar && overlay) {
                     sidebar.classList.remove('open');
                     overlay.classList.remove('active');
@@ -524,7 +509,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // --- MOBILE MENU LOGIC ---
         if (mobileMenuBtn && sidebar && overlay) {
             mobileMenuBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -540,12 +524,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        document.body.addEventListener('click', handleGlobalClicks);
-        if(mainContent) mainContent.addEventListener('click', handleMainContentClicks);
+        document.body.addEventListener('click', handleMainContentClicks);
 
         attachFormListeners();
 
-        // Search listeners using safe lookups
+        // Search listeners
         setupSearch('search-items', renderItemsTable, 'items', ['name', 'code', 'category']);
         setupSearch('search-suppliers', renderSuppliersTable, 'suppliers', ['name', 'supplierCode']);
         setupSearch('search-branches', renderBranchesTable, 'branches', ['branchName', 'branchCode']);
@@ -560,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnOpenItemInquiry = document.getElementById('btn-open-item-inquiry');
         if(btnOpenItemInquiry) btnOpenItemInquiry.addEventListener('click', () => openSelectionModal('item-inquiry'));
 
-        // Export Buttons
+        // Exports
         const exportMap = {
             'btn-export-items': ['table-items', 'ItemList.xlsx'],
             'btn-export-suppliers': ['table-suppliers', 'SupplierList.xlsx'],
@@ -1166,7 +1149,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 await reloadDataAndRefreshUI();
             }
         } catch (err) {
-            // FIX: Ensure loading state is turned off if user cancelled modal or error occurred
             setButtonLoading(false, buttonEl);
             Logger.error('Transaction failed or cancelled:', err);
         }
