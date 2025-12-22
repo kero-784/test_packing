@@ -22,12 +22,10 @@ function renderPaginationControls(tableId, totalItems) {
     `;
 }
 
-// Helper to safely update table HTML and wrap in scroll container
 function updateTableHTML(tableId, html, paginationHtml = '') {
     const tableElement = document.getElementById(tableId);
     if (!tableElement) return;
     
-    // Check if parent is already .table-responsive, if not, wrap it
     if (!tableElement.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -38,17 +36,13 @@ function updateTableHTML(tableId, html, paginationHtml = '') {
     const tbody = tableElement.querySelector('tbody');
     if(tbody) tbody.innerHTML = html;
 
-    // Handle Pagination Container
-    const parent = tableElement.parentElement.parentElement; // .report-area or .card
+    const parent = tableElement.parentElement.parentElement; 
     let pagContainer = document.getElementById(`pagination-${tableId.replace('table-', '')}`);
-    
-    // If specific container exists (defined in HTML), use it
     if (pagContainer) {
         pagContainer.innerHTML = paginationHtml;
     } 
 }
 
-// --- NEW: Render Company Info Preview ---
 function renderCompanyInfoPreview() {
     const container = document.getElementById('company-preview-container');
     if(!container) return;
@@ -75,8 +69,8 @@ function renderCompanyInfoPreview() {
 }
 
 // --- TABLE RENDERERS ---
+
 function renderItemsTable(data = state.items) {
-    // Client-side Pagination Logic
     const settings = state.pagination['table-items'];
     const totalItems = data.length;
     const start = (settings.page - 1) * settings.pageSize;
@@ -140,11 +134,11 @@ function renderSectionsTable(data = state.sections) {
     updateTableHTML('table-sections', html);
 }
 
+// Helper for transaction tables
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
     if (!table) return;
     
-    // Ensure wrapper
     if (!table.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -223,156 +217,13 @@ function renderAdjustmentListTable() {
     tbody.innerHTML = html;
 }
 
-function renderStockAdjustmentReport() {
-    const table = document.getElementById('table-stock-adj-report');
-    if(!table) return;
-    
-    // Filter transactions for adjustments
-    const adjData = state.transactions.filter(t => t.type === 'adjustment_in' || t.type === 'adjustment_out' || t.type === 'stock_adjustment').reverse();
-    
-    const settings = state.pagination['table-stock-adj-report'];
-    const totalItems = adjData.length;
-    const start = (settings.page - 1) * settings.pageSize;
-    const paginatedData = adjData.slice(start, start + settings.pageSize);
-
-    let html = '';
-    paginatedData.forEach(t => {
-        const item = findByKey(state.items, 'code', t.itemCode);
-        const branch = findByKey(state.branches, 'branchCode', t.fromBranchCode);
-        const typeDisplay = t.type === 'adjustment_in' ? 'Increase (+)' : 'Decrease (-)';
-        html += `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.ref || t.batchId}</td><td>${branch?.branchName || t.fromBranchCode}</td><td>${item?.name || t.itemCode}</td><td>${parseFloat(t.quantity).toFixed(2)}</td><td>${typeDisplay}</td><td>${t.notes || ''}</td><td><button class="secondary small btn-view-tx" data-batch-id="${t.batchId}" data-type="adjustment">${_t('view_print')}</button></td></tr>`;
-    });
-    updateTableHTML('table-stock-adj-report', html, renderPaginationControls('table-stock-adj-report', totalItems));
-}
-
-function renderSupplierAdjustmentReport() {
-    const table = document.getElementById('table-supplier-adj-report');
-    if(!table) return;
-    
-    const adjData = state.payments.filter(p => p.method === 'OPENING BALANCE').reverse();
-    
-    const settings = state.pagination['table-supplier-adj-report'];
-    const totalItems = adjData.length;
-    const start = (settings.page - 1) * settings.pageSize;
-    const paginatedData = adjData.slice(start, start + settings.pageSize);
-
-    let html = '';
-    paginatedData.forEach(p => {
-        const supplier = findByKey(state.suppliers, 'supplierCode', p.supplierCode);
-        html += `<tr><td>${new Date(p.date).toLocaleDateString()}</td><td>${p.invoiceNumber}</td><td>${supplier?.name || p.supplierCode}</td><td>${parseFloat(p.amount).toFixed(2)}</td><td>${p.method}</td><td><button class="secondary small btn-print-supplier-adj" data-id="${p.paymentId || p.ref}">Print</button></td></tr>`;
-    });
-    updateTableHTML('table-supplier-adj-report', html, renderPaginationControls('table-supplier-adj-report', totalItems));
-}
-
-function renderItemCentricStockView(itemsToRender = state.items, overrideBranches = null) {
-    const container = document.getElementById('item-centric-stock-container');
-    if (!container) return;
-    const stockByBranch = calculateStockLevels();
-    
-    // Use override if provided (from filter modal), otherwise use visible branches
-    const branchesToDisplay = overrideBranches || getVisibleBranchesForCurrentUser();
-    
-    let tableHTML = `<div class="table-responsive"><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('table_h_name')}</th>`;
-    branchesToDisplay.forEach(b => { tableHTML += `<th>${b.branchName}</th>` });
-    tableHTML += `<th>${_t('table_h_total')}</th></tr></thead><tbody>`;
-    itemsToRender.forEach(item => {
-        tableHTML += `<tr><td>${item.code}</td><td>${item.name}</td>`;
-        let total = 0;
-        branchesToDisplay.forEach(branch => {
-            const qty = stockByBranch[branch.branchCode]?.[item.code]?.quantity || 0;
-            total += qty;
-            tableHTML += `<td>${qty > 0 ? qty.toFixed(2) : '-'}</td>`;
-        });
-        tableHTML += `<td><strong>${total.toFixed(2)}</strong></td></tr>`;
-    });
-    tableHTML += `</tbody></table></div>`;
-    container.innerHTML = tableHTML;
-}
-
-function renderItemInquiry(searchTerm) {
-    const resultsContainer = document.getElementById('item-inquiry-results');
-    if (!resultsContainer) return;
-    if (!searchTerm) {
-        resultsContainer.innerHTML = '';
-        return;
-    }
-    const stockByBranch = calculateStockLevels();
-    // Filter items first
-    const filteredItems = state.items.filter(i => i.name.toLowerCase().includes(searchTerm) || i.code.toLowerCase().includes(searchTerm));
-    let html = '';
-    const branchesToDisplay = getVisibleBranchesForCurrentUser();
-    
-    // Only show top 10 results to prevent lag
-    filteredItems.slice(0, 10).forEach(item => {
-        html += `<h4>${item.name} (${item.code})</h4><div class="table-responsive"><table><thead><tr><th>${_t('branch')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_value')}</th></tr></thead><tbody>`;
-        let found = false;
-        let totalQty = 0;
-        let totalValue = 0;
-        branchesToDisplay.forEach(branch => {
-            const itemStock = stockByBranch[branch.branchCode]?.[item.code];
-            if (itemStock && itemStock.quantity > 0) {
-                const value = itemStock.quantity * itemStock.avgCost;
-                html += `<tr><td>${branch.branchName} (${branch.branchCode || ''})</td><td>${itemStock.quantity.toFixed(2)}</td><td>${value.toFixed(2)} EGP</td></tr>`;
-                totalQty += itemStock.quantity;
-                totalValue += value;
-                found = true;
-            }
-        });
-        if (!found) {
-            html += `<tr><td colspan="3">${_t('no_stock_for_item')}</td></tr>`;
-        } else {
-            html += `<tr style="font-weight:bold; background-color: var(--bg-color);"><td>${_t('table_h_total')}</td><td>${totalQty.toFixed(2)}</td><td>${totalValue.toFixed(2)} EGP</td></tr>`
-        }
-        html += `</tbody></table></div><hr>`;
-    });
-    resultsContainer.innerHTML = html;
-}
-
-function renderPaymentList() {
-    const supplierEl = document.getElementById('payment-supplier-select');
-    const container = document.getElementById('payment-invoice-list-container');
-    if (!supplierEl || !container) return;
-    
-    const supplierCode = supplierEl.value;
-    if (!supplierCode) { container.style.display = 'none'; return; }
-    
-    const supplierInvoices = calculateSupplierFinancials()[supplierCode]?.invoices;
-    const table = document.getElementById('table-payment-list');
-    if (!table) return;
-
-    if (!table.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        table.parentNode.insertBefore(wrapper, table);
-        wrapper.appendChild(table);
-    }
-    
-    const tableBody = table.querySelector('tbody');
-    let html = '';
-    let total = 0;
-    
-    if (state.invoiceModalSelections.size === 0) { container.style.display = 'none'; return; }
-    
-    state.invoiceModalSelections.forEach(invNum => {
-        const invoice = supplierInvoices[invNum];
-        if (!invoice) return;
-        const balance = invoice.balance;
-        total += balance;
-        html += `<tr><td>${invoice.number}</td><td>${balance.toFixed(2)} EGP</td><td><input type="number" class="table-input payment-amount-input" data-invoice="${invoice.number}" value="${balance.toFixed(2)}" step="0.01" min="0" max="${balance.toFixed(2)}" style="max-width: 150px;"></td></tr>`;
-    });
-    tableBody.innerHTML = html;
-    const totalEl = document.getElementById('payment-total-amount');
-    if(totalEl) totalEl.textContent = `${total.toFixed(2)} EGP`;
-    container.style.display = 'block';
-}
-
+// --- UPDATED: PENDING TRANSFERS RENDERER ---
 function renderPendingTransfers() {
     const container = document.getElementById('pending-transfers-card');
     const table = document.getElementById('table-pending-transfers');
     
     if(!container || !table) return;
     
-    // Ensure responsive wrapper
     if (!table.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -388,10 +239,11 @@ function renderPendingTransfers() {
     (state.transactions || []).filter(t => t.type === 'transfer_out' && t.Status === 'In Transit').forEach(t => {
         if (!groupedTransfers[t.batchId]) groupedTransfers[t.batchId] = { ...t, items: [], totalQty: 0 };
         groupedTransfers[t.batchId].items.push(t);
+        // Calculate total qty per batch
         groupedTransfers[t.batchId].totalQty += (parseFloat(t.quantity) || 0);
     });
     
-    // Filter by visibility (admin or receiving branch)
+    // Filter by user rights
     const visibleTransfers = Object.values(groupedTransfers).filter(t => {
         if (userCan('viewAllBranches')) return true;
         return String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode);
@@ -402,13 +254,23 @@ function renderPendingTransfers() {
         return;
     }
     
+    // Update Header
+    const thead = table.querySelector('thead tr');
+    if(thead) {
+        thead.innerHTML = `
+            <th>Date & Time</th>
+            <th>From Branch</th>
+            <th>Ref #</th>
+            <th>Total Qty</th>
+            <th>Action</th>
+        `;
+    }
+
     // Render Rows
     visibleTransfers.forEach(t => {
         const fromBranch = findByKey(state.branches, 'branchCode', t.fromBranchCode)?.branchName || t.fromBranchCode;
-        // Format date to include time
         const dateTime = new Date(t.date).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         
-        // Updated Columns: Date/Time | From Branch | Ref | Quantity | Actions
         html += `<tr>
             <td>${dateTime}</td>
             <td>${fromBranch}</td>
@@ -417,19 +279,6 @@ function renderPendingTransfers() {
             <td><button class="primary small btn-receive-transfer" data-batch-id="${t.batchId}">${_t('view_confirm')}</button></td>
         </tr>`;
     });
-    
-    // Update Header to match columns
-    const thead = table.querySelector('thead tr');
-    if(thead) {
-        thead.innerHTML = `
-            <th>Date & Time</th>
-            <th>From Branch</th>
-            <th>Reference #</th>
-            <th>Total Qty</th>
-            <th>Actions</th>
-        `;
-    }
-
     tbody.innerHTML = html;
     container.style.display = 'block';
 }
@@ -524,13 +373,11 @@ function renderTransactionHistory(filters = {}) {
     if (filters.branch) allHistoryItems = allHistoryItems.filter(t => String(t.branchCode) === String(filters.branch) || String(t.fromBranchCode) === String(filters.branch) || String(t.toBranchCode) === String(filters.branch));
     if (filters.searchTerm) { const lowerFilter = filters.searchTerm.toLowerCase(); allHistoryItems = allHistoryItems.filter(t => { const item = findByKey(state.items, 'code', t.itemCode); return (t.ref && String(t.ref).toLowerCase().includes(lowerFilter)) || (t.batchId && String(t.batchId).toLowerCase().includes(lowerFilter)) || (item && item.name.toLowerCase().includes(lowerFilter)); }); }
     
-    // Grouping
     const grouped = {};
     allHistoryItems.forEach(t => { const key = t.batchId; if (!key) return; if (!grouped[key]) grouped[key] = { date: t.date, type: t.type, batchId: key, transactions: [] }; grouped[key].transactions.push(t); });
     
     const groupedArray = Object.values(grouped).sort((a, b) => new Date(b.date) - new Date(a.date));
     
-    // Pagination
     const settings = state.pagination['table-transaction-history'];
     const totalItems = groupedArray.length;
     const start = (settings.page - 1) * settings.pageSize;
@@ -577,7 +424,6 @@ function renderUserManagementUI() {
     const usersTable = document.getElementById('table-users');
     const rolesTable = document.getElementById('table-roles');
     
-    // RENDER NEW MODULE
     renderCompanyInfoPreview();
 
     if(!usersTable || !rolesTable) return;
@@ -631,7 +477,6 @@ function renderMyRequests() {
         const branchName = findByKey(state.branches, 'branchCode', group.ToBranch)?.branchName || group.ToBranch;
         const sectionName = findByKey(state.sections, 'sectionCode', group.FromSection)?.sectionName || group.FromSection;
         
-        // View/Print Button included in Actions
         html += `<tr><td>${group.RequestID}</td><td>${new Date(group.Date).toLocaleDateString()}</td><td>${_t(group.Type)}</td><td>${itemsSummary}</td><td>${branchName}</td><td>${sectionName}</td><td><span class="status-tag status-${group.Status.toLowerCase()}">${_t('status_' + group.Status.toLowerCase())}</span></td><td><button class="secondary small btn-view-tx" data-batch-id="${group.RequestID}" data-type="issue">${_t('view_print')}</button></td></tr>`;
     });
     
