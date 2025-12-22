@@ -55,6 +55,12 @@ function renderCompanyInfoPreview() {
     
     const settings = state.companySettings || {};
     
+    // If empty settings, show a placeholder or message
+    if (Object.keys(settings).length === 0) {
+        container.innerHTML = `<div class="card"><p style="color:var(--text-secondary);">No company details found. Please update in Company Settings.</p></div>`;
+        return;
+    }
+    
     container.innerHTML = `
         <div class="card">
             <h2 style="margin-bottom: 16px;">Company Details Preview</h2>
