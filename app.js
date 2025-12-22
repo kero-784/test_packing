@@ -1,5 +1,3 @@
-// --- START OF FILE app.js ---
-
 document.addEventListener('DOMContentLoaded', () => {
     Logger.info('DOM fully loaded. Starting initialization...');
 
@@ -113,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showView(firstVisibleView);
         updateUserBranchDisplay();
         
-        // FIX: Ensure badges are updated immediately on load
+        // Trigger badge updates immediately
         setTimeout(updatePendingRequestsWidget, 500);
     };
 
@@ -174,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.currentUser) return;
         Logger.debug(`refreshViewData: refreshing data for ${viewId}...`);
 
-        // FIX: Always update badges when view data refreshes
         updatePendingRequestsWidget();
 
         try {
@@ -329,7 +326,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 case 'user-management':
                     const result = await postData('getAllUsersAndRoles', {}, null, 'Loading...');
-                    if (result) { state.allUsers = result.data.users; state.allRoles = result.data.roles; renderUserManagementUI(); }
+                    if (result) { 
+                        state.allUsers = result.data.users; 
+                        state.allRoles = result.data.roles; 
+                    }
+                    // Ensure the renderer is called even if data was cached/empty, to render the Company Preview
+                    renderUserManagementUI();
                     break;
                     
                 case 'activity-log':
@@ -686,20 +688,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const subviewId = btn.dataset.subview;
             Logger.info(`Sub-tab clicked: ${subviewId} in ${parentView.id || 'modal'}`);
 
-            // Update Buttons
+            // 1. Update Buttons CSS
             parentView.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active')); 
             btn.classList.add('active'); 
             
-            // Update Views
+            // 2. Update Content Views CSS
             parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
             const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
             
             if (subViewToShow) {
                 subViewToShow.classList.add('active');
                 
-                // Explicitly refresh data when tab changes (only if it's a main view)
+                // 3. Trigger Data Refresh only if needed (for non-modal views)
+                // We check if we are in a main view to avoid unnecessary API calls for modals
                 if(parentView.classList.contains('view')) {
-                    refreshViewData(parentView.id.replace('view-','')); 
+                    // Slight delay to ensure DOM is painted before potentially heavy rendering
+                    setTimeout(() => {
+                        const viewName = parentView.id.replace('view-', '');
+                        // Only refresh if specific logic requires it, otherwise static views stay
+                        // For now, we trust refreshViewData to handle sub-view logic if it has it
+                        // but we DON'T want it to reset the 'active' classes we just set.
+                        // So we generally DON'T call refreshViewData here unless necessary.
+                        // However, some tables (like logs) might need init. 
+                        // Let's rely on the user clicking "Refresh" or the initial load for data, 
+                        // and only trigger renderers if empty? 
+                        // For this app, simply switching tabs shouldn't always re-fetch/re-render everything if state is there.
+                        
+                        // BUT, strict requirement: "refresh data when tab changes"
+                        // To allow this without resetting the active tab, refreshViewData should NOT reset active classes.
+                        // My refreshViewData implementation does not reset active classes, it just populates tables.
+                        refreshViewData(viewName);
+                    }, 0);
                 }
             }
         });
