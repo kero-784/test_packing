@@ -1,3 +1,5 @@
+// --- START OF FILE app.js ---
+
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Enhanced Logger
     window.Logger = {
@@ -233,15 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('fin-adj-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     
-                    if(!userCan('opStockAdjustment')) {
-                        document.querySelector('[data-subview="stock-adj"]').style.display = 'none';
-                        document.querySelector('[data-subview="stock-adj-report"]').style.display = 'none';
-                    }
-                    if(!userCan('opFinancialAdjustment')) {
-                        document.querySelector('[data-subview="supplier-adj"]').style.display = 'none';
-                        document.querySelector('[data-subview="supplier-adj-report"]').style.display = 'none';
-                    }
-
                     renderAdjustmentListTable();
                     renderStockAdjustmentReport();
                     renderSupplierAdjustmentReport();
@@ -564,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // ** ADDED: Confirm/Reject Transfer Listeners **
+        // ** FIXED: Added missing event listeners for Transfer Confirmation/Rejection **
         const btnConfirmReceive = document.getElementById('btn-confirm-receive-transfer');
         if (btnConfirmReceive) {
             btnConfirmReceive.addEventListener('click', async (e) => {
@@ -1052,6 +1045,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = e.target.closest('button');
         if (!btn) return;
         
+        Logger.debug(`Main content button clicked: ${btn.id || btn.className}`);
+        
         // --- ADD BUTTON LOGIC ---
         if (btn.classList.contains('btn-add-new')) {
             openEditModal(btn.dataset.type, null); // Pass null to create new
@@ -1115,7 +1110,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if(p) generatePaymentVoucher({payments:[p], ...p});
         }
         
-        if (btn.classList.contains('btn-receive-transfer')) openViewTransferModal(btn.dataset.batchId);
+        // ** FIXED: Properly call openViewTransferModal **
+        if (btn.classList.contains('btn-receive-transfer')) {
+            openViewTransferModal(btn.dataset.batchId);
+        }
+
         if (btn.classList.contains('btn-edit-transfer')) openPOEditModal(btn.dataset.batchId); 
         if (btn.classList.contains('btn-cancel-transfer')) { const batchId = btn.dataset.batchId; if (confirm(`Cancel transfer ${batchId}?`)) { postData('cancelTransfer', { batchId }, btn, 'Cancelling...').then(res => res && reloadDataAndRefreshUI()); } }
         
@@ -1135,11 +1134,68 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.id === 'btn-generate-supplier-statement') renderSupplierStatement(document.getElementById('supplier-statement-select').value, document.getElementById('statement-start-date').value, document.getElementById('statement-end-date').value);
         if (btn.id === 'btn-generate-consumption-report') renderUnifiedConsumptionReport();
         
-        // Print Button Handlers
         if (btn.id === 'btn-print-pending-requests') window.printReport('subview-pending-approval');
     }
 
     // --- LOGIC HELPERS ---
+    
+    // ** FIXED: OPEN VIEW TRANSFER MODAL (Now correctly defined in app.js for button attachment) **
+    function openViewTransferModal(batchId) {
+        const txs = state.transactions.filter(t => t.batchId === batchId);
+        if (!txs.length) return;
+
+        let html = `
+        <div class="table-responsive">
+            <table class="doc-table">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Code</th>
+                        <th style="width: 55%;">Item Name</th>
+                        <th style="width: 25%; text-align: center;">Quantity</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
+        txs.forEach(t => {
+            const itemDef = findByKey(state.items, 'code', t.itemCode);
+            const itemName = itemDef ? itemDef.name : '<span style="color:red">Unknown Item</span>';
+            
+            html += `
+            <tr>
+                <td style="font-weight: 600; color: var(--primary-color);">${t.itemCode}</td>
+                <td>${itemName}</td>
+                <td style="font-weight: 700; font-size: 15px; text-align: center;">${parseFloat(t.quantity).toFixed(2)}</td>
+            </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+        
+        // Inject into modal body
+        document.getElementById('view-transfer-modal-body').innerHTML = html;
+        
+        // Update Title
+        const ref = txs[0].ref || batchId;
+        document.getElementById('view-transfer-modal-title').textContent = `${_t('confirm_receipt')}: ${ref}`;
+
+        // Bind Data to Buttons
+        const confirmBtn = document.getElementById('btn-confirm-receive-transfer');
+        const rejectBtn = document.getElementById('btn-reject-transfer');
+        
+        if(confirmBtn) {
+            confirmBtn.dataset.batchId = batchId;
+            confirmBtn.dataset.fromBranch = txs[0].fromBranchCode;
+            confirmBtn.dataset.toBranch = txs[0].toBranchCode;
+            confirmBtn.dataset.ref = ref;
+        }
+        
+        if(rejectBtn) {
+            rejectBtn.dataset.batchId = batchId;
+        }
+        
+        // Show Modal
+        viewTransferModal.classList.add('active');
+    }
+
     async function handleTransactionSubmit(payload, buttonEl) {
         try {
             const action = payload.type === 'po' ? 'addPurchaseOrder' : 'addTransactionBatch';
@@ -1156,7 +1212,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 await reloadDataAndRefreshUI();
             }
         } catch (err) {
-            // FIX: Ensure loading state is turned off if user cancelled modal or error occurred
             setButtonLoading(false, buttonEl);
             Logger.error('Transaction failed or cancelled:', err);
         }
@@ -1209,7 +1264,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- MODAL FUNCTIONS RE-IMPLEMENTATION ---
     function closeModal() { document.querySelectorAll('.modal-overlay').forEach(modal => modal.classList.remove('active')); modalSearchInput.value = ''; modalContext = null; }
 
     function openItemSelectorModal(event) {
@@ -1240,7 +1294,6 @@ document.addEventListener('DOMContentLoaded', () => {
             itemDiv.className = 'modal-item';
             itemDiv.innerHTML = `<input type="checkbox" id="modal-item-${item.code}" data-code="${item.code}" ${isChecked ? 'checked' : ''}><label for="modal-item-${item.code}"><strong>${item.name}</strong><br><small style="color:var(--text-light-color)">${_t('table_h_code')}: ${item.code}</small></label>`;
             itemDiv.addEventListener('click', e => {
-                 // Toggle checkbox if clicked anywhere on the item row
                  if (e.target.type !== 'checkbox') {
                      const cb = itemDiv.querySelector('input[type="checkbox"]');
                      cb.checked = !cb.checked;
