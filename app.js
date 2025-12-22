@@ -429,14 +429,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.reloadDataAndRefreshUI = async () => { 
+        Logger.info('Reloading data...'); 
         const { username, loginCode } = state; 
         if (!username || !loginCode) return; 
+        
         setButtonLoading(true, globalRefreshBtn, 'Loading...'); 
         try { 
             const response = await fetch(`${SCRIPT_URL}?username=${encodeURIComponent(username)}&loginCode=${encodeURIComponent(loginCode)}`); 
             if (!response.ok) throw new Error('Failed to reload data.'); 
             const data = await response.json(); 
             if (data.status === 'error') throw new Error(data.message); 
+            
             Object.keys(data).forEach(key => { 
                 if (key === 'user') return;
                 // FIX: Ensure companySettings is always an object for proper printing
@@ -450,7 +453,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     state[key] = data[key] || state[key]; 
                 }
             }); 
-            updateUserBranchDisplay(); updatePendingRequestsWidget(); 
+            
+            updateUserBranchDisplay(); 
+            updatePendingRequestsWidget(); 
+            
             const currentView = document.querySelector('.nav-item a.active')?.dataset.view || 'dashboard'; 
             await refreshViewData(currentView); 
             showToast(_t('data_refreshed_toast'), 'success'); 
@@ -692,13 +698,22 @@ document.addEventListener('DOMContentLoaded', () => {
              } else if (type === 'adjustment') {
                  const group = state.transactions.filter(t => t.batchId === batchId);
                  if(group.length) generateAdjustmentDocument({ ...group[0], items: group });
-             } else if (type === 'issue') {
-                  const group = state.itemRequests.filter(r => r.RequestID === batchId);
+             } else if (type === 'issue') { // Explicit handle for My Requests View/Print
+                  const group = state.itemRequests.filter(r => r.RequestID === batchId); // Check if it's a request ID
                   if (group.length > 0) {
+                      // It's a request, find the associated transaction if approved/completed
                       const first = group[0];
                       const items = group.map(r => ({ itemCode: r.ItemCode, quantity: r.IssuedQuantity || r.Quantity }));
-                      generateRequestIssueDocument({ ref: first.RequestID, date: first.Date, fromBranchCode: first.FromSection, sectionCode: first.ToBranch, items: items, notes: first.StatusNotes });
+                      generateRequestIssueDocument({
+                          ref: first.RequestID,
+                          date: first.Date,
+                          fromBranchCode: first.FromSection, 
+                          sectionCode: first.ToBranch,
+                          items: items,
+                          notes: first.StatusNotes
+                      });
                   } else {
+                      // Fallback for standard transaction lookup
                       const transactionGroup = state.transactions.filter(t => t.batchId === batchId);
                        if (transactionGroup.length > 0) {
                              const first = transactionGroup[0];
@@ -748,8 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- NEW HANDLERS FOR CONFIRM RECEIPT MODAL ---
-    
+    // --- FIX: CONFIRM RECEIPT MODAL LOGIC & LAYOUT ---
     function openViewTransferModal(batchId) {
         const txs = state.transactions.filter(t => t.batchId === batchId);
         if (!txs.length) return;
@@ -782,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemDef = findByKey(state.items, 'code', t.itemCode);
             const itemName = itemDef ? itemDef.name : '<span style="color:red">Unknown Item</span>';
             const qty = parseFloat(t.quantity);
-            // Explicit check to ensure qty is displayed even if 0
+            // Ensure Qty is always displayed
             const displayQty = isNaN(qty) ? '0.00' : qty.toFixed(2);
             
             html += `<tr>
@@ -796,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('view-transfer-modal-body').innerHTML = html;
         document.getElementById('view-transfer-modal-title').textContent = `${_t('confirm_receipt')}: ${first.ref || batchId}`;
         
-        // Store ID for the action buttons
+        // Store ID for buttons
         document.getElementById('btn-confirm-receive-transfer').dataset.batchId = batchId;
         document.getElementById('btn-reject-transfer').dataset.batchId = batchId;
         
