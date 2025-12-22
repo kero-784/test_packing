@@ -10,6 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContent = document.querySelector('.main-content');
     const installBtn = document.getElementById('btn-install-pwa');
 
+    // Language Switchers
+    const loginLangSwitcher = document.getElementById('login-lang-switcher');
+    const mainLangSwitcher = document.getElementById('lang-switcher');
+
     // Mobile UI Elements
     const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
     const sidebar = document.getElementById('sidebar');
@@ -70,19 +74,30 @@ document.addEventListener('DOMContentLoaded', () => {
             Logger.info('PWA was installed');
         });
 
-        const langSwitcher = document.getElementById('lang-switcher');
+        // Initialize Language
         const savedLang = localStorage.getItem('userLanguage') || 'en';
         state.currentLanguage = savedLang;
         
-        if(langSwitcher) {
-            langSwitcher.value = savedLang;
-            langSwitcher.addEventListener('change', e => {
-                const selectedLang = e.target.value;
-                localStorage.setItem('userLanguage', selectedLang);
-                state.currentLanguage = selectedLang;
-                reloadDataAndRefreshUI();
-            });
+        const changeLanguage = (lang) => {
+            state.currentLanguage = lang;
+            localStorage.setItem('userLanguage', lang);
+            if(loginLangSwitcher) loginLangSwitcher.value = lang;
+            if(mainLangSwitcher) mainLangSwitcher.value = lang;
+            applyTranslations();
+            // Only reload data if logged in
+            if(state.currentUser) reloadDataAndRefreshUI();
+        };
+
+        if(loginLangSwitcher) {
+            loginLangSwitcher.value = savedLang;
+            loginLangSwitcher.addEventListener('change', e => changeLanguage(e.target.value));
         }
+        
+        if(mainLangSwitcher) {
+            mainLangSwitcher.value = savedLang;
+            mainLangSwitcher.addEventListener('change', e => changeLanguage(e.target.value));
+        }
+        
         applyTranslations();
 
         if(loginForm) {
@@ -325,12 +340,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
 
                 case 'user-management':
-                    const result = await postData('getAllUsersAndRoles', {}, null, 'Loading...');
-                    if (result) { 
-                        state.allUsers = result.data.users; 
-                        state.allRoles = result.data.roles; 
+                    // Always try to fetch fresh data for user management to ensure roles are current
+                    try {
+                        const result = await postData('getAllUsersAndRoles', {}, null, 'Loading...');
+                        if (result) { 
+                            state.allUsers = result.data.users; 
+                            state.allRoles = result.data.roles; 
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch user data, using cache if available");
                     }
-                    // Ensure the renderer is called even if data was cached/empty, to render the Company Preview
+                    // Explicitly call the renderer here to ensure Company Info is drawn
                     renderUserManagementUI();
                     break;
                     
@@ -366,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(key !== 'user') state[key] = data[key] || state[key]; 
             }); 
             
+            // Ensure company settings are updated
             if(data.companySettings) state.companySettings = data.companySettings;
 
             updateUserBranchDisplay(); 
