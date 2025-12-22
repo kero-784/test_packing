@@ -1,5 +1,3 @@
-// --- START OF FILE app.js ---
-
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Enhanced Logger
     window.Logger = {
@@ -119,10 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
         Logger.info('Initializing App UI...');
         setupRoleBasedNav();
         attachEventListeners();
-        attachSubNavListeners(); // Fixed Sub-Nav Logic
+        attachSubNavListeners(); 
         setupPaginationListeners();
         
-        // Find default view
         let firstVisibleView = 'dashboard';
         const visibleNavLink = document.querySelector('#main-nav .nav-item:not([style*="display: none"]) a');
         if(visibleNavLink) firstVisibleView = visibleNavLink.dataset.view;
@@ -130,7 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showView(firstVisibleView);
         updateUserBranchDisplay();
         
-        // Safe update for badge widget
         if(typeof window.updatePendingRequestsWidget === 'function') {
              setTimeout(window.updatePendingRequestsWidget, 500);
         }
@@ -139,16 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- NAVIGATION LOGIC ---
     window.showView = (viewId, subViewId = null) => {
         try {
-            // 1. Hide all main views
             document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
             document.querySelectorAll('#main-nav a').forEach(link => link.classList.remove('active'));
 
-            // 2. Show requested main view
             const viewToShow = document.getElementById(`view-${viewId}`);
             if(!viewToShow) return;
             viewToShow.classList.add('active');
             
-            // 3. Highlight sidebar
             const activeLink = document.querySelector(`[data-view="${viewId}"]`);
             if (activeLink) {
                 activeLink.classList.add('active');
@@ -163,17 +156,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 4. Handle Sub-views (Tabs) initialization
-            // If the view has tabs, ensure one is active
             if (viewToShow.querySelector('.sub-nav')) {
                 let targetSubViewId = subViewId;
-                
-                // If no specific tab requested, check if one is already active (preserve state)
-                // or default to the first one.
                 if (!targetSubViewId) {
-                    const activeBtn = viewToShow.querySelector('.sub-nav-item.active');
-                    if (activeBtn) {
-                        targetSubViewId = activeBtn.dataset.subview;
+                    const activeTab = viewToShow.querySelector('.sub-nav-item.active');
+                    if(activeTab) {
+                        targetSubViewId = activeTab.dataset.subview;
                     } else {
                         const firstBtn = viewToShow.querySelector('.sub-nav-item:not([style*="display: none"])');
                         if (firstBtn) targetSubViewId = firstBtn.dataset.subview;
@@ -181,12 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 if (targetSubViewId) {
-                    // Activate Button
                     viewToShow.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active'));
                     const subViewBtn = viewToShow.querySelector(`[data-subview="${targetSubViewId}"]`);
                     if(subViewBtn) subViewBtn.classList.add('active');
                     
-                    // Activate View Content
                     viewToShow.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active'));
                     const subViewContainer = viewToShow.querySelector(`#subview-${targetSubViewId}`);
                     if (subViewContainer) subViewContainer.classList.add('active');
@@ -204,9 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.currentUser) return;
         Logger.info(`Refreshing data for view: ${viewId}`);
 
-        if(typeof window.updatePendingRequestsWidget === 'function') {
-            window.updatePendingRequestsWidget();
-        }
+        if(typeof window.updatePendingRequestsWidget === 'function') window.updatePendingRequestsWidget();
 
         try {
             switch(viewId) {
@@ -249,6 +233,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('fin-adj-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     
+                    if(!userCan('opStockAdjustment')) {
+                        document.querySelector('[data-subview="stock-adj"]').style.display = 'none';
+                        document.querySelector('[data-subview="stock-adj-report"]').style.display = 'none';
+                    }
+                    if(!userCan('opFinancialAdjustment')) {
+                        document.querySelector('[data-subview="supplier-adj"]').style.display = 'none';
+                        document.querySelector('[data-subview="supplier-adj-report"]').style.display = 'none';
+                    }
+
                     renderAdjustmentListTable();
                     renderStockAdjustmentReport();
                     renderSupplierAdjustmentReport();
@@ -269,8 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('payment-supplier-select'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
                     renderPaymentList();
-                    const btnInv = document.getElementById('btn-select-invoices');
-                    if(btnInv) btnInv.disabled = true;
                     break;
                     
                 case 'purchasing':
@@ -284,15 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'stock-levels':
                     const titleEl = document.getElementById('stock-levels-title');
                     if(titleEl) titleEl.textContent = userCan('viewAllBranches') ? _t('stock_by_item_all_branches') : _t('stock_by_item_your_branch');
-                    
-                    const btnSelectBranches = document.getElementById('btn-stock-select-branches');
-                    if (btnSelectBranches) {
-                        btnSelectBranches.style.display = userCan('viewAllBranches') ? 'inline-flex' : 'none';
-                    }
-                    
                     renderItemCentricStockView();
-                    const itemInq = document.getElementById('item-inquiry-search');
-                    if(document.getElementById('item-inquiry-results')) document.getElementById('item-inquiry-results').innerHTML = '';
                     break;
                     
                 case 'transaction-history': 
@@ -304,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const txBranch = document.getElementById('tx-filter-branch');
                     const txSearch = document.getElementById('transaction-search');
                     renderTransactionHistory({
-                        startDate: null, endDate: null, type: null, 
                         branch: txBranch ? txBranch.value : null,
                         searchTerm: txSearch ? txSearch.value : null
                     }); 
@@ -339,9 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             state.allRoles = result.data.roles; 
                         }
                     } catch (e) {
-                        console.error("Failed to fetch user data, using cache if available");
+                        Logger.warn("Using cached user data");
                     }
-                    // Explicitly call the renderer here to ensure Company Info is drawn
                     if(typeof window.renderUserManagementUI === 'function') {
                         window.renderUserManagementUI();
                     }
@@ -364,7 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.reloadDataAndRefreshUI = async () => { 
-        Logger.info('Reloading data...'); 
         const { username, loginCode } = state; 
         if (!username || !loginCode) return; 
         
@@ -379,10 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(key !== 'user') state[key] = data[key] || state[key]; 
             }); 
             
-            // Fix: Ensure Company Settings are applied
             if(data.companySettings) {
                 state.companySettings = data.companySettings;
-                Logger.info('Company Settings Reloaded');
+            } else {
+                state.companySettings = {};
             }
 
             updateUserBranchDisplay(); 
@@ -399,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     };
 
-    // --- FIXED SUB-NAV LISTENER ---
+    // --- SUB-NAV LISTENER ---
     function attachSubNavListeners() {
         const handleSubNavClick = (e) => {
             const btn = e.target.closest('.sub-nav-item');
@@ -409,10 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
 
             const parentContext = btn.closest('.view') || btn.closest('.modal-body');
-            if (!parentContext) {
-                Logger.debug("Tab click ignored: No parent context found.");
-                return;
-            }
+            if (!parentContext) return;
 
             const subviewId = btn.dataset.subview;
             if(!subviewId) return;
@@ -432,7 +409,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        // Attach to document to catch all current and future elements
         document.addEventListener('click', handleSubNavClick);
     }
 
@@ -440,27 +416,22 @@ document.addEventListener('DOMContentLoaded', () => {
     window.updatePendingRequestsWidget = function() {
         if (!state.currentUser) return;
 
-        // 1. Pending Internal Requests
         const pendingRequests = (state.itemRequests || []).filter(r => 
             r.Status === 'Pending' && 
             (userCan('viewAllBranches') || String(r.ToBranch) === String(state.currentUser.AssignedBranchCode))
         );
         const reqCount = pendingRequests.length;
 
-        // 2. Incoming Transfers (In Transit)
         const incomingTransfers = (state.transactions || []).filter(t => 
             t.type === 'transfer_out' && 
             t.Status === 'In Transit' && 
             (userCan('viewAllBranches') || String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode))
         );
-        // Deduplicate by batchId for transfers
         const transferCount = new Set(incomingTransfers.map(t => t.batchId)).size;
 
-        // 3. Update Sidebar Badges
         updateSidebarBadge('internal-distribution', reqCount);
         updateSidebarBadge('operations', transferCount);
 
-        // 4. Update Dashboard Widget
         const widget = document.getElementById('pending-requests-widget');
         if (widget) {
             if (reqCount + transferCount > 0) {
@@ -593,6 +564,44 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        // ** ADDED: Confirm/Reject Transfer Listeners **
+        const btnConfirmReceive = document.getElementById('btn-confirm-receive-transfer');
+        if (btnConfirmReceive) {
+            btnConfirmReceive.addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                const batchId = btn.dataset.batchId;
+                const txs = state.transactions.filter(t => t.batchId === batchId);
+                
+                const payload = {
+                    action: 'receiveTransfer',
+                    originalBatchId: batchId,
+                    fromBranchCode: btn.dataset.fromBranch,
+                    toBranchCode: btn.dataset.toBranch,
+                    ref: btn.dataset.ref,
+                    items: txs.map(t => ({ itemCode: t.itemCode, quantity: t.quantity }))
+                };
+
+                if(await postData('receiveTransfer', payload, btn, 'Receiving...')) {
+                    showToast('Transfer Received Successfully', 'success');
+                    closeModal();
+                    reloadDataAndRefreshUI();
+                }
+            });
+        }
+
+        const btnRejectTransfer = document.getElementById('btn-reject-transfer');
+        if(btnRejectTransfer) {
+            btnRejectTransfer.addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                if(confirm('Are you sure you want to reject this transfer?')) {
+                    await postData('rejectTransfer', { batchId: btn.dataset.batchId }, btn, 'Rejecting...');
+                    showToast('Transfer Rejected', 'success');
+                    closeModal();
+                    reloadDataAndRefreshUI();
+                }
+            });
+        }
+
         const backupList = document.getElementById('backup-list-container');
         if (backupList) {
             backupList.addEventListener('click', (e) => {
@@ -1043,8 +1052,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = e.target.closest('button');
         if (!btn) return;
         
-        Logger.debug(`Main content button clicked: ${btn.id || btn.className}`);
-        
         // --- ADD BUTTON LOGIC ---
         if (btn.classList.contains('btn-add-new')) {
             openEditModal(btn.dataset.type, null); // Pass null to create new
@@ -1149,6 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await reloadDataAndRefreshUI();
             }
         } catch (err) {
+            // FIX: Ensure loading state is turned off if user cancelled modal or error occurred
             setButtonLoading(false, buttonEl);
             Logger.error('Transaction failed or cancelled:', err);
         }
