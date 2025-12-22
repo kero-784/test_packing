@@ -22,10 +22,12 @@ function renderPaginationControls(tableId, totalItems) {
     `;
 }
 
+// Helper to safely update table HTML and wrap in scroll container
 function updateTableHTML(tableId, html, paginationHtml = '') {
     const tableElement = document.getElementById(tableId);
     if (!tableElement) return;
     
+    // Check if parent is already .table-responsive, if not, wrap it
     if (!tableElement.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -36,13 +38,17 @@ function updateTableHTML(tableId, html, paginationHtml = '') {
     const tbody = tableElement.querySelector('tbody');
     if(tbody) tbody.innerHTML = html;
 
-    const parent = tableElement.parentElement.parentElement; 
+    // Handle Pagination Container
+    const parent = tableElement.parentElement.parentElement; // .report-area or .card
     let pagContainer = document.getElementById(`pagination-${tableId.replace('table-', '')}`);
+    
+    // If specific container exists (defined in HTML), use it
     if (pagContainer) {
         pagContainer.innerHTML = paginationHtml;
     } 
 }
 
+// --- NEW: Render Company Info Preview ---
 function renderCompanyInfoPreview() {
     const container = document.getElementById('company-preview-container');
     if(!container) return;
@@ -69,8 +75,8 @@ function renderCompanyInfoPreview() {
 }
 
 // --- TABLE RENDERERS ---
-
 function renderItemsTable(data = state.items) {
+    // Client-side Pagination Logic
     const settings = state.pagination['table-items'];
     const totalItems = data.length;
     const start = (settings.page - 1) * settings.pageSize;
@@ -134,11 +140,11 @@ function renderSectionsTable(data = state.sections) {
     updateTableHTML('table-sections', html);
 }
 
-// Helper for transaction tables
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
     if (!table) return;
     
+    // Ensure wrapper
     if (!table.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -217,7 +223,7 @@ function renderAdjustmentListTable() {
     tbody.innerHTML = html;
 }
 
-// --- UPDATED: PENDING TRANSFERS RENDERER ---
+// --- UPDATED RENDERER FOR PENDING TRANSFERS ---
 function renderPendingTransfers() {
     const container = document.getElementById('pending-transfers-card');
     const table = document.getElementById('table-pending-transfers');
@@ -232,18 +238,33 @@ function renderPendingTransfers() {
     }
 
     const tbody = table.querySelector('tbody');
-    let html = '';
+    const thead = table.querySelector('thead');
+    
+    // Force Header Update
+    if(thead) {
+        thead.innerHTML = `
+            <tr>
+                <th style="width: 25%;">Date & Time</th>
+                <th style="width: 25%;">From Branch</th>
+                <th style="width: 20%;">Ref #</th>
+                <th style="width: 15%;">Total Qty</th>
+                <th style="width: 15%;">Action</th>
+            </tr>
+        `;
+    }
     
     // Group by Batch ID
     const groupedTransfers = {};
-    (state.transactions || []).filter(t => t.type === 'transfer_out' && t.Status === 'In Transit').forEach(t => {
-        if (!groupedTransfers[t.batchId]) groupedTransfers[t.batchId] = { ...t, items: [], totalQty: 0 };
-        groupedTransfers[t.batchId].items.push(t);
-        // Calculate total qty per batch
-        groupedTransfers[t.batchId].totalQty += (parseFloat(t.quantity) || 0);
+    (state.transactions || []).forEach(t => {
+        if (t.type === 'transfer_out' && (t.Status || '').toLowerCase() === 'in transit') {
+            if (!groupedTransfers[t.batchId]) {
+                groupedTransfers[t.batchId] = { ...t, items: [], totalQty: 0 };
+            }
+            groupedTransfers[t.batchId].items.push(t);
+            groupedTransfers[t.batchId].totalQty += (parseFloat(t.quantity) || 0);
+        }
     });
     
-    // Filter by user rights
     const visibleTransfers = Object.values(groupedTransfers).filter(t => {
         if (userCan('viewAllBranches')) return true;
         return String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode);
@@ -254,28 +275,17 @@ function renderPendingTransfers() {
         return;
     }
     
-    // Update Header
-    const thead = table.querySelector('thead tr');
-    if(thead) {
-        thead.innerHTML = `
-            <th>Date & Time</th>
-            <th>From Branch</th>
-            <th>Ref #</th>
-            <th>Total Qty</th>
-            <th>Action</th>
-        `;
-    }
-
-    // Render Rows
+    let html = '';
     visibleTransfers.forEach(t => {
-        const fromBranch = findByKey(state.branches, 'branchCode', t.fromBranchCode)?.branchName || t.fromBranchCode;
-        const dateTime = new Date(t.date).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const fromBranchObj = (state.branches || []).find(b => String(b.branchCode) === String(t.fromBranchCode));
+        const fromBranchName = fromBranchObj ? fromBranchObj.branchName : t.fromBranchCode;
+        const dateTime = new Date(t.date).toLocaleDateString() + ' ' + new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
         html += `<tr>
-            <td>${dateTime}</td>
-            <td>${fromBranch}</td>
+            <td style="font-size:13px;">${dateTime}</td>
+            <td style="font-weight:600;">${fromBranchName}</td>
             <td>${t.ref || t.batchId}</td>
-            <td style="font-weight:bold;">${t.totalQty.toFixed(2)}</td>
+            <td style="font-weight:bold; color:var(--primary-color);">${t.totalQty.toFixed(2)}</td>
             <td><button class="primary small btn-receive-transfer" data-batch-id="${t.batchId}">${_t('view_confirm')}</button></td>
         </tr>`;
     });
@@ -503,113 +513,13 @@ function renderPendingRequests() {
     updateTableHTML('table-pending-requests', html);
 }
 
-// Supplier Statement Renderer (moved functionality from app.js click handler to here)
-function renderSupplierStatement(supplierCode, startDate, endDate) {
-    const container = document.getElementById('supplier-statement-results');
-    if(!container) return;
-    
-    if(!supplierCode) { container.innerHTML = `<p style="color:red;">Please select a supplier.</p>`; container.style.display = 'block'; return; }
-    
-    const financials = calculateSupplierFinancials();
-    const supplierData = financials[supplierCode];
-    if (!supplierData) { container.innerHTML = '<p>No data found.</p>'; container.style.display = 'block'; return; }
-
-    let balance = 0;
-    let html = `<div class="printable-document card"><h2>${_t('supplier_statement_title', {supplierName: supplierData.supplierName})}</h2><p>${_t('date_generated')} ${new Date().toLocaleDateString()}</p>`;
-    
-    const sDate = startDate ? new Date(startDate) : null;
-    const eDate = endDate ? new Date(endDate) : null;
-    let filteredEvents = supplierData.events;
-    
-    if (sDate) {
-        // Calculate Opening Balance
-        const previousEvents = filteredEvents.filter(e => new Date(e.date) < sDate);
-        previousEvents.forEach(e => balance += (e.debit - e.credit));
-        html += `<p>${_t('opening_balance_as_of', {date: sDate.toLocaleDateString()})}: <strong>${balance.toFixed(2)} EGP</strong></p>`;
-        filteredEvents = filteredEvents.filter(e => new Date(e.date) >= sDate);
-    }
-    if (eDate) {
-        eDate.setHours(23,59,59);
-        filteredEvents = filteredEvents.filter(e => new Date(e.date) <= eDate);
-    }
-
-    html += `<table><thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>`;
-    
-    filteredEvents.forEach(e => {
-        balance += (e.debit - e.credit);
-        html += `<tr><td>${new Date(e.date).toLocaleDateString()}</td><td>${e.type}</td><td>${e.ref}</td><td>${e.debit > 0 ? e.debit.toFixed(2) : '-'}</td><td>${e.credit > 0 ? e.credit.toFixed(2) : '-'}</td><td>${balance.toFixed(2)}</td></tr>`;
-    });
-    
-    html += `</tbody><tfoot><tr><td colspan="5" style="text-align:right;"><strong>${_t('closing_balance')}</strong></td><td><strong>${balance.toFixed(2)} EGP</strong></td></tr></tfoot></table></div>`;
-    
-    container.innerHTML = html;
-    container.style.display = 'block';
-    const btnExport = document.getElementById('btn-export-supplier-statement');
-    if(btnExport) btnExport.disabled = false;
-}
-
-// Unified Consumption Report
-function renderUnifiedConsumptionReport() {
-    const container = document.getElementById('consumption-report-results');
-    if(!container) return;
-
-    const sDate = document.getElementById('consumption-start-date').value ? new Date(document.getElementById('consumption-start-date').value) : null;
-    const eDate = document.getElementById('consumption-end-date').value ? new Date(document.getElementById('consumption-end-date').value) : null;
-    if(eDate) eDate.setHours(23,59,59);
-
-    const selBranches = state.reportSelectedBranches.size > 0 ? state.reportSelectedBranches : new Set(state.branches.map(b => b.branchCode));
-    const selSections = state.reportSelectedSections.size > 0 ? state.reportSelectedSections : new Set(state.sections.map(s => s.sectionCode));
-    const selItems = state.reportSelectedItems; // If empty, all items
-
-    let html = `<div class="printable-document card"><h2>${_t('consumption_report')}</h2>`;
-    if(sDate && eDate) html += `<p>${_t('report_period_from_to', {startDate: sDate.toLocaleDateString(), endDate: eDate.toLocaleDateString()})}</p>`;
-    else html += `<p>${_t('report_period_all_time')}</p>`;
-
-    // Grouping
-    const data = {}; // Key: ItemCode, Value: { qty: 0, cost: 0 }
-    
-    (state.transactions || []).forEach(t => {
-        if (!['issue', 'transfer_out'].includes(t.type)) return;
-        
-        // Filters
-        const date = new Date(t.date);
-        if (sDate && date < sDate) return;
-        if (eDate && date > eDate) return;
-        if (t.type === 'issue' && !selSections.has(t.sectionCode)) return;
-        if (t.type === 'transfer_out' && !selBranches.has(t.fromBranchCode)) return; // Outgoing from selected branch is consumption
-        if (selItems.size > 0 && !selItems.has(t.itemCode)) return;
-
-        if (!data[t.itemCode]) data[t.itemCode] = { qty: 0, val: 0 };
-        const cost = findByKey(state.items, 'code', t.itemCode)?.cost || 0;
-        data[t.itemCode].qty += parseFloat(t.quantity);
-        data[t.itemCode].val += parseFloat(t.quantity) * cost;
-    });
-
-    html += `<table><thead><tr><th>Code</th><th>Item</th><th>${_t('table_h_total_qty_consumed')}</th><th>${_t('table_h_total_value_consumed')}</th></tr></thead><tbody>`;
-    let totalVal = 0;
-    Object.keys(data).forEach(code => {
-        const item = findByKey(state.items, 'code', code);
-        html += `<tr><td>${code}</td><td>${item ? item.name : code}</td><td>${data[code].qty.toFixed(2)}</td><td>${data[code].val.toFixed(2)} EGP</td></tr>`;
-        totalVal += data[code].val;
-    });
-    html += `</tbody><tfoot><tr><td colspan="3" style="text-align:right;"><strong>${_t('grand_total_value')}</strong></td><td><strong>${totalVal.toFixed(2)} EGP</strong></td></tr></tfoot></table></div>`;
-
-    container.innerHTML = html;
-    container.style.display = 'block';
-    const btnExport = document.getElementById('btn-export-consumption-report');
-    if(btnExport) btnExport.disabled = false;
-}
-
 // --- MODERN DOCUMENT GENERATORS ---
 
-// Helper to build the common header structure
 const getDocumentHeader = (title, id, status = '') => {
-    // Ensure object exists
     const info = state.companySettings || {}; 
     
     const companyName = info.CompanyName || 'PACKING STOCK';
     const address = info.Address || '';
-    // Build strings only if data exists
     const taxInfo = [
         info.TaxID ? `Tax ID: ${info.TaxID}` : '',
         info.CRNumber ? `CR: ${info.CRNumber}` : ''
@@ -639,19 +549,21 @@ const generateReceiveDocument = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown', contact: '' };
     const branch = findByKey(state.branches, 'branchCode', data.branchCode) || { branchName: 'Unknown' };
     
+    // Ensure items is an array
+    const items = Array.isArray(data.items) ? data.items : [data];
     let itemsHtml = '', totalValue = 0;
     
-    // Handle items
-    const items = data.items || [data];
-    
     items.forEach(item => {
-        const itemTotal = item.quantity * item.cost;
+        const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0);
         totalValue += itemTotal;
+        const itemObj = findByKey(state.items, 'code', item.itemCode);
+        const itemName = item.itemName || (itemObj ? itemObj.name : 'N/A');
+
         itemsHtml += `<tr>
             <td>${item.itemCode}</td>
-            <td>${item.itemName}</td>
-            <td style="text-align:center">${item.quantity.toFixed(2)}</td>
-            <td style="text-align:right">${item.cost.toFixed(2)}</td>
+            <td>${itemName}</td>
+            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
+            <td style="text-align:right">${parseFloat(item.cost).toFixed(2)}</td>
             <td style="text-align:right">${itemTotal.toFixed(2)}</td>
         </tr>`;
     });
@@ -679,7 +591,7 @@ const generateReceiveDocument = (data) => {
             <div class="info-col" style="flex: 0 0 200px;">
                 <table class="meta-table">
                     <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                    <tr><td class="label">Invoice #:</td><td class="val">${data.invoiceNumber}</td></tr>
+                    <tr><td class="label">Invoice #:</td><td class="val">${data.invoiceNumber || 'N/A'}</td></tr>
                     <tr><td class="label">PO Ref:</td><td class="val">${data.poId || 'N/A'}</td></tr>
                 </table>
             </div>
@@ -717,15 +629,16 @@ const generateTransferDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toBranch = findByKey(state.branches, 'branchCode', data.toBranchCode) || { branchName: 'Unknown' };
     
-    // Handle both single item object or array of items
-    const items = data.items || [data]; 
+    const items = Array.isArray(data.items) ? data.items : [data];
     let itemsHtml = '';
     
     items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
+        const itemName = item.itemName || fullItem.name;
+        
         itemsHtml += `<tr>
             <td>${item.itemCode}</td>
-            <td>${item.itemName || fullItem.name}</td>
+            <td>${itemName}</td>
             <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
             <td style="text-align:center">${fullItem.unit || ''}</td>
         </tr>`;
@@ -779,8 +692,7 @@ const generateIssueDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
     
-    // Handle items
-    const items = data.items || [data];
+    const items = Array.isArray(data.items) ? data.items : [data];
     let itemsHtml = '';
     
     items.forEach(item => {
@@ -839,7 +751,9 @@ const generatePODocument = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
     let itemsHtml = '', totalValue = 0;
     
-    data.items.forEach(item => {
+    const items = Array.isArray(data.items) ? data.items : [];
+    
+    items.forEach(item => {
         const itemDetails = findByKey(state.items, 'code', item.itemCode) || {name: "Unknown"};
         const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0);
         totalValue += itemTotal;
@@ -903,13 +817,19 @@ const generatePODocument = (data) => {
 const generatePaymentVoucher = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
     let invoicesHtml = '';
-    data.payments.forEach(p => {
-        invoicesHtml += `<tr><td>${p.invoiceNumber}</td><td style="text-align:right">${p.amount.toFixed(2)} EGP</td></tr>`;
+    
+    // Ensure data.payments exists
+    const payments = Array.isArray(data.payments) ? data.payments : [data];
+    
+    payments.forEach(p => {
+        invoicesHtml += `<tr><td>${p.invoiceNumber}</td><td style="text-align:right">${parseFloat(p.amount).toFixed(2)} EGP</td></tr>`;
     });
+
+    const paymentId = payments.length > 0 ? payments[0].paymentId : 'N/A';
 
     const content = `
     <div class="printable-document">
-        ${getDocumentHeader('Payment Voucher', data.payments[0].paymentId)}
+        ${getDocumentHeader('Payment Voucher', paymentId)}
         
         <div class="doc-info-grid">
             <div class="info-col">
@@ -939,7 +859,7 @@ const generatePaymentVoucher = (data) => {
             <div class="totals-box">
                 <div class="total-row final">
                     <span>Total Paid:</span>
-                    <span>${data.totalAmount.toFixed(2)} EGP</span>
+                    <span>${parseFloat(data.totalAmount).toFixed(2)} EGP</span>
                 </div>
             </div>
         </div>
@@ -955,9 +875,7 @@ const generatePaymentVoucher = (data) => {
 const generateReturnDocument = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
     const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
-    
-    // Handle items
-    const items = data.items || [data];
+    const items = Array.isArray(data.items) ? data.items : [data];
     let itemsHtml = '', totalValue = 0;
     
     items.forEach(item => {
@@ -966,8 +884,8 @@ const generateReturnDocument = (data) => {
         itemsHtml += `<tr>
             <td>${item.itemCode}</td>
             <td>${item.itemName}</td>
-            <td style="text-align:center">${item.quantity.toFixed(2)}</td>
-            <td style="text-align:right">${item.cost.toFixed(2)}</td>
+            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
+            <td style="text-align:right">${parseFloat(item.cost).toFixed(2)}</td>
             <td style="text-align:right">${itemTotal.toFixed(2)}</td>
         </tr>`;
     });
@@ -1021,9 +939,7 @@ const generateReturnDocument = (data) => {
 const generateRequestIssueDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
-    
-    // Handle items
-    const items = data.items || [data];
+    const items = Array.isArray(data.items) ? data.items : [data];
     let itemsHtml = '';
     
     items.forEach(item => {
@@ -1073,9 +989,7 @@ const generateRequestIssueDocument = (data) => {
 
 const generateAdjustmentDocument = (data) => {
     const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
-    
-    // Handle items
-    const items = data.items || [data];
+    const items = Array.isArray(data.items) ? data.items : [data];
     let itemsHtml = '';
     
     items.forEach(item => {
