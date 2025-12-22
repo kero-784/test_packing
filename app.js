@@ -1,4 +1,14 @@
+// --- START OF FILE app.js ---
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Enhanced Logger for debugging
+    window.Logger = {
+        info: (msg) => console.log(`%c[INFO] ${msg}`, 'color: blue'),
+        debug: (msg, data) => console.log(`%c[DEBUG] ${msg}`, 'color: purple', data || ''),
+        error: (msg, err) => console.error(`%c[ERROR] ${msg}`, 'color: red', err || ''),
+        warn: (msg) => console.warn(`[WARN] ${msg}`)
+    };
+
     Logger.info('DOM fully loaded. Starting initialization...');
 
     // --- DOM ELEMENT REFERENCES ---
@@ -340,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
 
                 case 'user-management':
+                    Logger.debug('Refreshing User Management View...');
                     // Always try to fetch fresh data for user management to ensure roles are current
                     try {
                         const result = await postData('getAllUsersAndRoles', {}, null, 'Loading...');
@@ -387,7 +398,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }); 
             
             // Ensure company settings are updated
-            if(data.companySettings) state.companySettings = data.companySettings;
+            if(data.companySettings) {
+                state.companySettings = data.companySettings;
+                Logger.debug("Company Settings Reloaded:", state.companySettings);
+            } else {
+                Logger.warn("No company settings returned on reload");
+            }
 
             updateUserBranchDisplay(); 
             updatePendingRequestsWidget(); 
@@ -694,7 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED) ---
+    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED DEBUG VERSION) ---
     function attachSubNavListeners() { 
         document.body.addEventListener('click', e => {
             const btn = e.target.closest('.sub-nav-item');
@@ -702,45 +718,40 @@ document.addEventListener('DOMContentLoaded', () => {
             
             e.preventDefault();
 
-            // FIX: Allow finding parent in either View OR Modal
             const parentView = btn.closest('.view') || btn.closest('.modal-body'); 
-            if (!parentView) return;
+            if (!parentView) {
+                Logger.error("Could not find parent view for tab", btn);
+                return;
+            }
             
             const subviewId = btn.dataset.subview;
-            Logger.info(`Sub-tab clicked: ${subviewId} in ${parentView.id || 'modal'}`);
+            Logger.debug(`Sub-tab clicked: ${subviewId}`, { parentId: parentView.id });
 
-            // 1. Update Buttons CSS
+            // 1. Reset Buttons
             parentView.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active')); 
             btn.classList.add('active'); 
             
-            // 2. Update Content Views CSS
-            parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
-            const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
+            // 2. Hide all contents
+            parentView.querySelectorAll('.sub-view').forEach(view => {
+                view.classList.remove('active');
+            });
+            
+            // 3. Show specific content
+            // Note: We search document-wide because IDs must be unique
+            const subViewToShow = document.getElementById(`subview-${subviewId}`); 
             
             if (subViewToShow) {
                 subViewToShow.classList.add('active');
+                Logger.info(`Switched to tab content: #subview-${subviewId}`);
                 
-                // 3. Trigger Data Refresh only if needed (for non-modal views)
-                // We check if we are in a main view to avoid unnecessary API calls for modals
+                // 4. Trigger Data Refresh only if needed
                 if(parentView.classList.contains('view')) {
-                    // Slight delay to ensure DOM is painted before potentially heavy rendering
-                    setTimeout(() => {
-                        const viewName = parentView.id.replace('view-', '');
-                        // Only refresh if specific logic requires it, otherwise static views stay
-                        // For now, we trust refreshViewData to handle sub-view logic if it has it
-                        // but we DON'T want it to reset the 'active' classes we just set.
-                        // So we generally DON'T call refreshViewData here unless necessary.
-                        // However, some tables (like logs) might need init. 
-                        // Let's rely on the user clicking "Refresh" or the initial load for data, 
-                        // and only trigger renderers if empty? 
-                        // For this app, simply switching tabs shouldn't always re-fetch/re-render everything if state is there.
-                        
-                        // BUT, strict requirement: "refresh data when tab changes"
-                        // To allow this without resetting the active tab, refreshViewData should NOT reset active classes.
-                        // My refreshViewData implementation does not reset active classes, it just populates tables.
-                        refreshViewData(viewName);
-                    }, 0);
+                    const viewName = parentView.id.replace('view-', '');
+                    // Only data refresh, do not reset UI classes
+                    refreshViewData(viewName).catch(err => Logger.error("Error refreshing tab data", err));
                 }
+            } else {
+                Logger.error(`Target div #subview-${subviewId} not found in DOM!`);
             }
         });
     }
