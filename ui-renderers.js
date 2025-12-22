@@ -1,6 +1,5 @@
 // ui-renderers.js
 
-// --- HELPER FUNCTIONS ---
 function getVisibleBranchesForCurrentUser() {
     if (!state.currentUser) return [];
     if (userCan('viewAllBranches')) { return state.branches; }
@@ -11,10 +10,8 @@ function getVisibleBranchesForCurrentUser() {
 function renderPaginationControls(tableId, totalItems) {
     const settings = state.pagination[tableId];
     if (!settings) return '';
-
     const totalPages = Math.ceil(totalItems / settings.pageSize);
     if (totalPages <= 1) return '';
-
     return `
         <button class="pagination-btn" data-table="${tableId}" data-delta="-1" ${settings.page === 1 ? 'disabled' : ''}>Previous</button>
         <span>Page ${settings.page} of ${totalPages}</span>
@@ -22,44 +19,30 @@ function renderPaginationControls(tableId, totalItems) {
     `;
 }
 
-// Helper to safely update table HTML and wrap in scroll container
 function updateTableHTML(tableId, html, paginationHtml = '') {
     const tableElement = document.getElementById(tableId);
     if (!tableElement) return;
-    
-    // Check if parent is already .table-responsive, if not, wrap it
     if (!tableElement.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
         tableElement.parentNode.insertBefore(wrapper, tableElement);
         wrapper.appendChild(tableElement);
     }
-    
     const tbody = tableElement.querySelector('tbody');
     if(tbody) tbody.innerHTML = html;
-
-    // Handle Pagination Container
-    const parent = tableElement.parentElement.parentElement; // .report-area or .card
+    const parent = tableElement.parentElement.parentElement; 
     let pagContainer = document.getElementById(`pagination-${tableId.replace('table-', '')}`);
-    
-    // If specific container exists (defined in HTML), use it
-    if (pagContainer) {
-        pagContainer.innerHTML = paginationHtml;
-    } 
+    if (pagContainer) { pagContainer.innerHTML = paginationHtml; } 
 }
 
-// --- TABLE RENDERERS ---
 function renderItemsTable(data = state.items) {
-    // Client-side Pagination Logic
     const settings = state.pagination['table-items'];
     const totalItems = data.length;
     const start = (settings.page - 1) * settings.pageSize;
     const paginatedData = data.slice(start, start + settings.pageSize);
-
     let html = '';
-    if (totalItems === 0) {
-        html = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_found')}</td></tr>`;
-    } else {
+    if (totalItems === 0) { html = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_found')}</td></tr>`; } 
+    else {
         const canEdit = userCan('editItem');
         paginatedData.forEach(item => {
             html += `<tr><td>${item.code}</td><td>${item.name}</td><td>${_t(item.category?.toLowerCase()) || item.category || 'N/A'}</td><td>${item.unit}</td><td>${(parseFloat(item.cost) || 0).toFixed(2)} EGP</td><td><div class="action-buttons"><button class="secondary small btn-edit" data-type="item" data-id="${item.code}" ${!canEdit ? 'disabled' : ''}>${_t('edit')}</button><button class="secondary small btn-history" data-type="item" data-id="${item.code}">${_t('history')}</button></div></td></tr>`;
@@ -73,11 +56,9 @@ function renderSuppliersTable(data = state.suppliers) {
     const totalItems = data.length;
     const start = (settings.page - 1) * settings.pageSize;
     const paginatedData = data.slice(start, start + settings.pageSize);
-
     let html = '';
-    if (totalItems === 0) {
-        html = `<tr><td colspan="5" style="text-align:center;">${_t('no_suppliers_found')}</td></tr>`;
-    } else {
+    if (totalItems === 0) { html = `<tr><td colspan="5" style="text-align:center;">${_t('no_suppliers_found')}</td></tr>`; } 
+    else {
         const financials = calculateSupplierFinancials();
         const canEdit = userCan('editSupplier');
         paginatedData.forEach(supplier => {
@@ -90,26 +71,20 @@ function renderSuppliersTable(data = state.suppliers) {
 
 function renderBranchesTable(data = state.branches) {
     let html = '';
-    if (!data || data.length === 0) {
-        html = `<tr><td colspan="3" style="text-align:center;">${_t('no_branches_found')}</td></tr>`;
-    } else {
+    if (!data || data.length === 0) { html = `<tr><td colspan="3" style="text-align:center;">${_t('no_branches_found')}</td></tr>`; } 
+    else {
         const canEdit = userCan('editBranch');
-        data.forEach(branch => {
-            html += `<tr><td>${branch.branchCode || ''}</td><td>${branch.branchName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="branch" data-id="${branch.branchCode}">${_t('edit')}</button>`: 'N/A'}</td></tr>`;
-        });
+        data.forEach(branch => { html += `<tr><td>${branch.branchCode || ''}</td><td>${branch.branchName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="branch" data-id="${branch.branchCode}">${_t('edit')}</button>`: 'N/A'}</td></tr>`; });
     }
     updateTableHTML('table-branches', html);
 }
 
 function renderSectionsTable(data = state.sections) {
     let html = '';
-    if (!data || data.length === 0) {
-        html = `<tr><td colspan="3" style="text-align:center;">${_t('no_sections_found')}</td></tr>`;
-    } else {
+    if (!data || data.length === 0) { html = `<tr><td colspan="3" style="text-align:center;">${_t('no_sections_found')}</td></tr>`; } 
+    else {
         const canEdit = userCan('editSection');
-        data.forEach(section => {
-            html += `<tr><td>${section.sectionCode || ''}</td><td>${section.sectionName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="section" data-id="${section.sectionCode}">${_t('edit')}</button>`: 'N/A'}</td></tr>`;
-        });
+        data.forEach(section => { html += `<tr><td>${section.sectionCode || ''}</td><td>${section.sectionName}</td><td>${canEdit ? `<button class="secondary small btn-edit" data-type="section" data-id="${section.sectionCode}">${_t('edit')}</button>`: 'N/A'}</td></tr>`; });
     }
     updateTableHTML('table-sections', html);
 }
@@ -117,21 +92,13 @@ function renderSectionsTable(data = state.sections) {
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
     if (!table) return;
-    
-    // Ensure wrapper
     if (!table.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        table.parentNode.insertBefore(wrapper, table);
-        wrapper.appendChild(table);
+        const wrapper = document.createElement('div'); wrapper.className = 'table-responsive'; table.parentNode.insertBefore(wrapper, table); wrapper.appendChild(table);
     }
-
     const tbody = table.querySelector('tbody');
     let html = '';
-    
-    if (!list || list.length === 0) {
-        html = `<tr><td colspan="${columnsConfig.length + 1}" style="text-align:center;">${_t(emptyMessage)}</td></tr>`;
-    } else {
+    if (!list || list.length === 0) { html = `<tr><td colspan="${columnsConfig.length + 1}" style="text-align:center;">${_t(emptyMessage)}</td></tr>`; } 
+    else {
         const stock = calculateStockLevels();
         list.forEach((item, index) => {
             let cellsHtml = '';
@@ -152,7 +119,6 @@ const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, tota
             html += `<tr>${cellsHtml}<td><button class="danger small" data-index="${index}">X</button></td></tr>`;
         });
     }
-    
     tbody.innerHTML = html;
     if (totalizerFn) totalizerFn();
 };
@@ -168,29 +134,21 @@ function renderRequestListTable() { renderDynamicListTable('table-request-list',
 function renderAdjustmentListTable() {
     const table = document.getElementById('table-adjustment-list');
     if (!table) return;
-    
     if (!table.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        table.parentNode.insertBefore(wrapper, table);
-        wrapper.appendChild(table);
+        const wrapper = document.createElement('div'); wrapper.className = 'table-responsive'; table.parentNode.insertBefore(wrapper, table); wrapper.appendChild(table);
     }
-    
     const tbody = table.querySelector('tbody');
     let html = '';
-    if (!state.currentAdjustmentList || state.currentAdjustmentList.length === 0) {
-        html = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_for_adjustment')}</td></tr>`;
-    } else {
+    if (!state.currentAdjustmentList || state.currentAdjustmentList.length === 0) { html = `<tr><td colspan="6" style="text-align:center;">${_t('no_items_for_adjustment')}</td></tr>`; } 
+    else {
         const stock = calculateStockLevels();
         const branchCodeEl = document.getElementById('adjustment-branch');
         const branchCode = branchCodeEl ? branchCodeEl.value : null;
-
         state.currentAdjustmentList.forEach((item, index) => {
             const systemQty = (branchCode && stock[branchCode]?.[item.itemCode]?.quantity) || 0;
             const physicalCount = typeof item.physicalCount !== 'undefined' ? item.physicalCount : '';
             const adjustment = physicalCount - systemQty;
             item.physicalCount = physicalCount;
-            
             html += `<tr><td>${item.itemCode}</td><td>${item.itemName}</td><td>${systemQty.toFixed(2)}</td><td><input type="number" class="table-input" value="${physicalCount}" min="0" step="0.01" data-index="${index}" data-field="physicalCount"></td><td style="font-weight: bold; color: ${adjustment > 0 ? 'var(--secondary-color)' : (adjustment < 0 ? 'var(--danger-color)' : 'inherit')}">${adjustment.toFixed(2)}</td><td><button class="danger small" data-index="${index}">X</button></td></tr>`;
         });
     }
@@ -198,17 +156,12 @@ function renderAdjustmentListTable() {
 }
 
 function renderStockAdjustmentReport() {
-    const table = document.getElementById('table-stock-adj-report');
-    if(!table) return;
-    
-    // Filter transactions for adjustments
+    const table = document.getElementById('table-stock-adj-report'); if(!table) return;
     const adjData = state.transactions.filter(t => t.type === 'adjustment_in' || t.type === 'adjustment_out' || t.type === 'stock_adjustment').reverse();
-    
     const settings = state.pagination['table-stock-adj-report'];
     const totalItems = adjData.length;
     const start = (settings.page - 1) * settings.pageSize;
     const paginatedData = adjData.slice(start, start + settings.pageSize);
-
     let html = '';
     paginatedData.forEach(t => {
         const item = findByKey(state.items, 'code', t.itemCode);
@@ -220,16 +173,12 @@ function renderStockAdjustmentReport() {
 }
 
 function renderSupplierAdjustmentReport() {
-    const table = document.getElementById('table-supplier-adj-report');
-    if(!table) return;
-    
+    const table = document.getElementById('table-supplier-adj-report'); if(!table) return;
     const adjData = state.payments.filter(p => p.method === 'OPENING BALANCE').reverse();
-    
     const settings = state.pagination['table-supplier-adj-report'];
     const totalItems = adjData.length;
     const start = (settings.page - 1) * settings.pageSize;
     const paginatedData = adjData.slice(start, start + settings.pageSize);
-
     let html = '';
     paginatedData.forEach(p => {
         const supplier = findByKey(state.suppliers, 'supplierCode', p.supplierCode);
@@ -242,10 +191,7 @@ function renderItemCentricStockView(itemsToRender = state.items, overrideBranche
     const container = document.getElementById('item-centric-stock-container');
     if (!container) return;
     const stockByBranch = calculateStockLevels();
-    
-    // Use override if provided (from filter modal), otherwise use visible branches
     const branchesToDisplay = overrideBranches || getVisibleBranchesForCurrentUser();
-    
     let tableHTML = `<div class="table-responsive"><table><thead><tr><th>${_t('table_h_code')}</th><th>${_t('table_h_name')}</th>`;
     branchesToDisplay.forEach(b => { tableHTML += `<th>${b.branchName}</th>` });
     tableHTML += `<th>${_t('table_h_total')}</th></tr></thead><tbody>`;
@@ -266,37 +212,24 @@ function renderItemCentricStockView(itemsToRender = state.items, overrideBranche
 function renderItemInquiry(searchTerm) {
     const resultsContainer = document.getElementById('item-inquiry-results');
     if (!resultsContainer) return;
-    if (!searchTerm) {
-        resultsContainer.innerHTML = '';
-        return;
-    }
+    if (!searchTerm) { resultsContainer.innerHTML = ''; return; }
     const stockByBranch = calculateStockLevels();
-    // Filter items first
     const filteredItems = state.items.filter(i => i.name.toLowerCase().includes(searchTerm) || i.code.toLowerCase().includes(searchTerm));
     let html = '';
     const branchesToDisplay = getVisibleBranchesForCurrentUser();
-    
-    // Only show top 10 results to prevent lag
     filteredItems.slice(0, 10).forEach(item => {
         html += `<h4>${item.name} (${item.code})</h4><div class="table-responsive"><table><thead><tr><th>${_t('branch')}</th><th>${_t('table_h_qty')}</th><th>${_t('table_h_value')}</th></tr></thead><tbody>`;
-        let found = false;
-        let totalQty = 0;
-        let totalValue = 0;
+        let found = false; let totalQty = 0; let totalValue = 0;
         branchesToDisplay.forEach(branch => {
             const itemStock = stockByBranch[branch.branchCode]?.[item.code];
             if (itemStock && itemStock.quantity > 0) {
                 const value = itemStock.quantity * itemStock.avgCost;
                 html += `<tr><td>${branch.branchName} (${branch.branchCode || ''})</td><td>${itemStock.quantity.toFixed(2)}</td><td>${value.toFixed(2)} EGP</td></tr>`;
-                totalQty += itemStock.quantity;
-                totalValue += value;
-                found = true;
+                totalQty += itemStock.quantity; totalValue += value; found = true;
             }
         });
-        if (!found) {
-            html += `<tr><td colspan="3">${_t('no_stock_for_item')}</td></tr>`;
-        } else {
-            html += `<tr style="font-weight:bold; background-color: var(--bg-color);"><td>${_t('table_h_total')}</td><td>${totalQty.toFixed(2)}</td><td>${totalValue.toFixed(2)} EGP</td></tr>`
-        }
+        if (!found) { html += `<tr><td colspan="3">${_t('no_stock_for_item')}</td></tr>`; } 
+        else { html += `<tr style="font-weight:bold; background-color: var(--bg-color);"><td>${_t('table_h_total')}</td><td>${totalQty.toFixed(2)}</td><td>${totalValue.toFixed(2)} EGP</td></tr>` }
         html += `</tbody></table></div><hr>`;
     });
     resultsContainer.innerHTML = html;
@@ -306,27 +239,17 @@ function renderPaymentList() {
     const supplierEl = document.getElementById('payment-supplier-select');
     const container = document.getElementById('payment-invoice-list-container');
     if (!supplierEl || !container) return;
-    
     const supplierCode = supplierEl.value;
     if (!supplierCode) { container.style.display = 'none'; return; }
-    
     const supplierInvoices = calculateSupplierFinancials()[supplierCode]?.invoices;
     const table = document.getElementById('table-payment-list');
     if (!table) return;
-
     if (!table.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        table.parentNode.insertBefore(wrapper, table);
-        wrapper.appendChild(table);
+        const wrapper = document.createElement('div'); wrapper.className = 'table-responsive'; table.parentNode.insertBefore(wrapper, table); wrapper.appendChild(table);
     }
-    
     const tableBody = table.querySelector('tbody');
-    let html = '';
-    let total = 0;
-    
+    let html = ''; let total = 0;
     if (state.invoiceModalSelections.size === 0) { container.style.display = 'none'; return; }
-    
     state.invoiceModalSelections.forEach(invNum => {
         const invoice = supplierInvoices[invNum];
         if (!invoice) return;
@@ -343,35 +266,22 @@ function renderPaymentList() {
 function renderPendingTransfers() {
     const container = document.getElementById('pending-transfers-card');
     const table = document.getElementById('table-pending-transfers');
-    
     if(!container || !table) return;
-    
     if (!table.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        table.parentNode.insertBefore(wrapper, table);
-        wrapper.appendChild(table);
+        const wrapper = document.createElement('div'); wrapper.className = 'table-responsive'; table.parentNode.insertBefore(wrapper, table); wrapper.appendChild(table);
     }
-
     const tbody = table.querySelector('tbody');
     let html = '';
-    
     const groupedTransfers = {};
     (state.transactions || []).filter(t => t.type === 'transfer_out' && t.Status === 'In Transit').forEach(t => {
         if (!groupedTransfers[t.batchId]) groupedTransfers[t.batchId] = { ...t, items: [] };
         groupedTransfers[t.batchId].items.push(t);
     });
-    
     const visibleTransfers = Object.values(groupedTransfers).filter(t => {
         if (userCan('viewAllBranches')) return true;
         return String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode);
     });
-    
-    if (visibleTransfers.length === 0) {
-        container.style.display = 'none';
-        return;
-    }
-    
+    if (visibleTransfers.length === 0) { container.style.display = 'none'; return; }
     visibleTransfers.forEach(t => {
         const fromBranch = findByKey(state.branches, 'branchCode', t.fromBranchCode)?.branchName || t.fromBranchCode;
         html += `<tr><td>${new Date(t.date).toLocaleString()}</td><td>${fromBranch}</td><td>${t.ref}</td><td>${t.items.length}</td><td><button class="primary small btn-receive-transfer" data-batch-id="${t.batchId}">${_t('view_confirm')}</button></td></tr>`;
@@ -383,14 +293,9 @@ function renderPendingTransfers() {
 function renderInTransitReport() {
     const table = document.getElementById('table-in-transit');
     if(!table) return;
-    
     if (!table.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        table.parentNode.insertBefore(wrapper, table);
-        wrapper.appendChild(table);
+        const wrapper = document.createElement('div'); wrapper.className = 'table-responsive'; table.parentNode.insertBefore(wrapper, table); wrapper.appendChild(table);
     }
-
     const tbody = table.querySelector('tbody');
     let html = '';
     const groupedTransfers = {};
@@ -399,7 +304,6 @@ function renderInTransitReport() {
         groupedTransfers[t.batchId].items.push(t);
     });
     const visibleTransfers = Object.values(groupedTransfers).filter(t => userCan('viewAllBranches') || t.toBranchCode === state.currentUser.AssignedBranchCode || t.fromBranchCode === state.currentUser.AssignedBranchCode);
-    
     visibleTransfers.forEach(t => {
         const fromBranch = findByKey(state.branches, 'branchCode', t.fromBranchCode)?.branchName || t.fromBranchCode;
         const toBranch = findByKey(state.branches, 'branchCode', t.toBranchCode)?.branchName || t.toBranchCode;
@@ -413,13 +317,11 @@ function renderInTransitReport() {
 function renderPurchaseOrdersViewer() {
     const table = document.getElementById('table-po-viewer');
     if(!table) return;
-    
     const allPOs = (state.purchaseOrders || []).slice().reverse();
     const settings = state.pagination['table-po-viewer'];
     const totalItems = allPOs.length;
     const start = (settings.page - 1) * settings.pageSize;
     const paginatedPOs = allPOs.slice(start, start + settings.pageSize);
-
     const tbody = table.querySelector('tbody');
     let html = '';
     paginatedPOs.forEach(po => {
@@ -434,7 +336,6 @@ function renderPurchaseOrdersViewer() {
 function renderPendingFinancials() {
     const table = document.getElementById('table-pending-financial-approval');
     if(!table) return;
-    
     const tbody = table.querySelector('tbody');
     let html = '';
     const pendingPOs = (state.purchaseOrders || []).filter(po => po.Status === 'Pending Approval');
@@ -456,7 +357,6 @@ function renderPendingFinancials() {
 function renderTransactionHistory(filters = {}) {
     const table = document.getElementById('table-transaction-history');
     if(!table) return;
-    
     const tbody = table.querySelector('tbody');
     let html = '';
     let allTx = [...state.transactions], allPo = [...state.purchaseOrders];
@@ -470,13 +370,9 @@ function renderTransactionHistory(filters = {}) {
     if (filters.branch) allHistoryItems = allHistoryItems.filter(t => String(t.branchCode) === String(filters.branch) || String(t.fromBranchCode) === String(filters.branch) || String(t.toBranchCode) === String(filters.branch));
     if (filters.searchTerm) { const lowerFilter = filters.searchTerm.toLowerCase(); allHistoryItems = allHistoryItems.filter(t => { const item = findByKey(state.items, 'code', t.itemCode); return (t.ref && String(t.ref).toLowerCase().includes(lowerFilter)) || (t.batchId && String(t.batchId).toLowerCase().includes(lowerFilter)) || (item && item.name.toLowerCase().includes(lowerFilter)); }); }
     
-    // Grouping
     const grouped = {};
     allHistoryItems.forEach(t => { const key = t.batchId; if (!key) return; if (!grouped[key]) grouped[key] = { date: t.date, type: t.type, batchId: key, transactions: [] }; grouped[key].transactions.push(t); });
-    
     const groupedArray = Object.values(grouped).sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // Pagination
     const settings = state.pagination['table-transaction-history'];
     const totalItems = groupedArray.length;
     const start = (settings.page - 1) * settings.pageSize;
@@ -498,7 +394,6 @@ function renderTransactionHistory(filters = {}) {
         }
         html += `<tr><td>${new Date(first.date).toLocaleString()}</td><td>${typeDisplay}</td><td>${refNum}</td><td>${details}</td><td>${statusTag}</td><td><div class="action-buttons">${actionsHtml}</div></td></tr>`;
     });
-    
     updateTableHTML('table-transaction-history', html, renderPaginationControls('table-transaction-history', totalItems));
 }
 
@@ -508,7 +403,6 @@ function renderActivityLog() {
     const totalItems = data.length;
     const start = (settings.page - 1) * settings.pageSize;
     const paginatedData = data.slice().reverse().slice(start, start + settings.pageSize);
-
     let html = '';
     if (totalItems === 0) { html = `<tr><td colspan="4" style="text-align:center;">No activity logged.</td></tr>`; }
     else {
@@ -523,20 +417,12 @@ function renderUserManagementUI() {
     const usersTable = document.getElementById('table-users');
     const rolesTable = document.getElementById('table-roles');
     if(!usersTable || !rolesTable) return;
-    
     if (!usersTable.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        usersTable.parentNode.insertBefore(wrapper, usersTable);
-        wrapper.appendChild(usersTable);
+        const wrapper = document.createElement('div'); wrapper.className = 'table-responsive'; usersTable.parentNode.insertBefore(wrapper, usersTable); wrapper.appendChild(usersTable);
     }
     if (!rolesTable.parentElement.classList.contains('table-responsive')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-responsive';
-        rolesTable.parentNode.insertBefore(wrapper, rolesTable);
-        wrapper.appendChild(rolesTable);
+        const wrapper = document.createElement('div'); wrapper.className = 'table-responsive'; rolesTable.parentNode.insertBefore(wrapper, rolesTable); wrapper.appendChild(rolesTable);
     }
-    
     const usersTbody = usersTable.querySelector('tbody');
     let userHtml = '';
     (state.allUsers || []).forEach(user => {
@@ -545,7 +431,6 @@ function renderUserManagementUI() {
         userHtml += `<tr><td>${user.Username}</td><td>${user.Name}</td><td>${user.RoleName}</td><td>${assigned}</td><td><span class="status-tag ${isDisabled ? 'status-rejected' : 'status-approved'}">${isDisabled ? 'Disabled' : 'Active'}</span></td><td><button class="secondary small btn-edit" data-type="user" data-id="${user.Username}">${_t('edit')}</button></td></tr>`;
     });
     usersTbody.innerHTML = userHtml;
-
     const rolesTbody = rolesTable.querySelector('tbody');
     let roleHtml = '';
     (state.allRoles || []).forEach(role => {
@@ -557,38 +442,30 @@ function renderUserManagementUI() {
 function renderMyRequests() {
     const table = document.getElementById('table-my-requests-history');
     if(!table) return;
-
     const myRequests = (state.itemRequests || []).filter(r => r.RequestedBy === state.currentUser.Name);
     const grouped = myRequests.reduce((acc, req) => { if (!acc[req.RequestID]) acc[req.RequestID] = { ...req, items: [] }; acc[req.RequestID].items.push(req); return acc; }, {});
     const groupedArray = Object.values(grouped).reverse();
-    
     const settings = state.pagination['table-my-requests-history'];
     const totalItems = groupedArray.length;
     const start = (settings.page - 1) * settings.pageSize;
     const paginatedData = groupedArray.slice(start, start + settings.pageSize);
-
     let html = '';
     paginatedData.forEach(group => {
         const itemsSummary = group.items.map(i => `${i.Quantity} / ${i.IssuedQuantity !== '' && i.IssuedQuantity !== null ? i.IssuedQuantity : 'N/A'}`).join(', ');
         const branchName = findByKey(state.branches, 'branchCode', group.ToBranch)?.branchName || group.ToBranch;
         const sectionName = findByKey(state.sections, 'sectionCode', group.FromSection)?.sectionName || group.FromSection;
-        
-        // View/Print Button included in Actions
         html += `<tr><td>${group.RequestID}</td><td>${new Date(group.Date).toLocaleDateString()}</td><td>${_t(group.Type)}</td><td>${itemsSummary}</td><td>${branchName}</td><td>${sectionName}</td><td><span class="status-tag status-${group.Status.toLowerCase()}">${_t('status_' + group.Status.toLowerCase())}</span></td><td><button class="secondary small btn-view-tx" data-batch-id="${group.RequestID}" data-type="issue">${_t('view_print')}</button></td></tr>`;
     });
-    
     updateTableHTML('table-my-requests-history', html, renderPaginationControls('table-my-requests-history', totalItems));
 }
 
 function renderPendingRequests() {
     const table = document.getElementById('table-pending-requests');
     if(!table) return;
-    
     const tbody = table.querySelector('tbody');
     let html = '';
     const pending = (state.itemRequests || []).filter(r => r.Status === 'Pending' && (userCan('viewAllBranches') || r.ToBranch === state.currentUser.AssignedBranchCode));
     const grouped = pending.reduce((acc, req) => { if (!acc[req.RequestID]) acc[req.RequestID] = []; acc[req.RequestID].push(req); return acc; }, {});
-    
     Object.values(grouped).forEach(group => {
         const first = group[0];
         const fromSection = findByKey(state.sections, 'sectionCode', first.FromSection)?.sectionName || first.FromSection;
@@ -600,26 +477,19 @@ function renderPendingRequests() {
     updateTableHTML('table-pending-requests', html);
 }
 
-// Supplier Statement Renderer (moved functionality from app.js click handler to here)
 function renderSupplierStatement(supplierCode, startDate, endDate) {
     const container = document.getElementById('supplier-statement-results');
     if(!container) return;
-    
     if(!supplierCode) { container.innerHTML = `<p style="color:red;">Please select a supplier.</p>`; container.style.display = 'block'; return; }
-    
     const financials = calculateSupplierFinancials();
     const supplierData = financials[supplierCode];
     if (!supplierData) { container.innerHTML = '<p>No data found.</p>'; container.style.display = 'block'; return; }
-
     let balance = 0;
     let html = `<div class="printable-document card"><h2>${_t('supplier_statement_title', {supplierName: supplierData.supplierName})}</h2><p>${_t('date_generated')} ${new Date().toLocaleDateString()}</p>`;
-    
     const sDate = startDate ? new Date(startDate) : null;
     const eDate = endDate ? new Date(endDate) : null;
     let filteredEvents = supplierData.events;
-    
     if (sDate) {
-        // Calculate Opening Balance
         const previousEvents = filteredEvents.filter(e => new Date(e.date) < sDate);
         previousEvents.forEach(e => balance += (e.debit - e.credit));
         html += `<p>${_t('opening_balance_as_of', {date: sDate.toLocaleDateString()})}: <strong>${balance.toFixed(2)} EGP</strong></p>`;
@@ -629,59 +499,44 @@ function renderSupplierStatement(supplierCode, startDate, endDate) {
         eDate.setHours(23,59,59);
         filteredEvents = filteredEvents.filter(e => new Date(e.date) <= eDate);
     }
-
     html += `<table><thead><tr><th>Date</th><th>Type</th><th>Ref</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>`;
-    
     filteredEvents.forEach(e => {
         balance += (e.debit - e.credit);
         html += `<tr><td>${new Date(e.date).toLocaleDateString()}</td><td>${e.type}</td><td>${e.ref}</td><td>${e.debit > 0 ? e.debit.toFixed(2) : '-'}</td><td>${e.credit > 0 ? e.credit.toFixed(2) : '-'}</td><td>${balance.toFixed(2)}</td></tr>`;
     });
-    
     html += `</tbody><tfoot><tr><td colspan="5" style="text-align:right;"><strong>${_t('closing_balance')}</strong></td><td><strong>${balance.toFixed(2)} EGP</strong></td></tr></tfoot></table></div>`;
-    
     container.innerHTML = html;
     container.style.display = 'block';
     const btnExport = document.getElementById('btn-export-supplier-statement');
     if(btnExport) btnExport.disabled = false;
 }
 
-// Unified Consumption Report
 function renderUnifiedConsumptionReport() {
     const container = document.getElementById('consumption-report-results');
     if(!container) return;
-
     const sDate = document.getElementById('consumption-start-date').value ? new Date(document.getElementById('consumption-start-date').value) : null;
     const eDate = document.getElementById('consumption-end-date').value ? new Date(document.getElementById('consumption-end-date').value) : null;
     if(eDate) eDate.setHours(23,59,59);
-
     const selBranches = state.reportSelectedBranches.size > 0 ? state.reportSelectedBranches : new Set(state.branches.map(b => b.branchCode));
     const selSections = state.reportSelectedSections.size > 0 ? state.reportSelectedSections : new Set(state.sections.map(s => s.sectionCode));
-    const selItems = state.reportSelectedItems; // If empty, all items
-
+    const selItems = state.reportSelectedItems; 
     let html = `<div class="printable-document card"><h2>${_t('consumption_report')}</h2>`;
     if(sDate && eDate) html += `<p>${_t('report_period_from_to', {startDate: sDate.toLocaleDateString(), endDate: eDate.toLocaleDateString()})}</p>`;
     else html += `<p>${_t('report_period_all_time')}</p>`;
-
-    // Grouping
-    const data = {}; // Key: ItemCode, Value: { qty: 0, cost: 0 }
-    
+    const data = {}; 
     (state.transactions || []).forEach(t => {
         if (!['issue', 'transfer_out'].includes(t.type)) return;
-        
-        // Filters
         const date = new Date(t.date);
         if (sDate && date < sDate) return;
         if (eDate && date > eDate) return;
         if (t.type === 'issue' && !selSections.has(t.sectionCode)) return;
-        if (t.type === 'transfer_out' && !selBranches.has(t.fromBranchCode)) return; // Outgoing from selected branch is consumption
+        if (t.type === 'transfer_out' && !selBranches.has(t.fromBranchCode)) return;
         if (selItems.size > 0 && !selItems.has(t.itemCode)) return;
-
         if (!data[t.itemCode]) data[t.itemCode] = { qty: 0, val: 0 };
         const cost = findByKey(state.items, 'code', t.itemCode)?.cost || 0;
         data[t.itemCode].qty += parseFloat(t.quantity);
         data[t.itemCode].val += parseFloat(t.quantity) * cost;
     });
-
     html += `<table><thead><tr><th>Code</th><th>Item</th><th>${_t('table_h_total_qty_consumed')}</th><th>${_t('table_h_total_value_consumed')}</th></tr></thead><tbody>`;
     let totalVal = 0;
     Object.keys(data).forEach(code => {
@@ -690,32 +545,30 @@ function renderUnifiedConsumptionReport() {
         totalVal += data[code].val;
     });
     html += `</tbody><tfoot><tr><td colspan="3" style="text-align:right;"><strong>${_t('grand_total_value')}</strong></td><td><strong>${totalVal.toFixed(2)} EGP</strong></td></tr></tfoot></table></div>`;
-
     container.innerHTML = html;
     container.style.display = 'block';
     const btnExport = document.getElementById('btn-export-consumption-report');
     if(btnExport) btnExport.disabled = false;
 }
 
-// --- MODERN DOCUMENT GENERATORS ---
-
-// Helper to build the common header structure
+// --- DOCUMENT GENERATORS ---
 const getDocumentHeader = (title, id, status = '') => {
-    // Ensure object exists and prevent crash if companySettings is array or missing
-    const info = (state.companySettings && !Array.isArray(state.companySettings)) 
-                 ? state.companySettings 
-                 : {}; 
+    // FIX: Normalize companySettings for robustness
+    let info = {};
+    if (state.companySettings) {
+        if (Array.isArray(state.companySettings)) {
+            info = state.companySettings.length > 0 ? state.companySettings[0] : {};
+        } else {
+            info = state.companySettings;
+        }
+    }
     
-    // Fallback or empty strings
     const companyName = info.CompanyName || 'PACKING STOCK';
     const address = info.Address || '';
-    
-    // Build strings only if data exists
     const taxInfo = [
         info.TaxID ? `Tax ID: ${info.TaxID}` : '',
         info.CRNumber ? `CR: ${info.CRNumber}` : ''
     ].filter(Boolean).join(' | ');
-    
     const contactInfo = [
         info.Phone || '', 
         info.Email || ''
@@ -739,448 +592,94 @@ const getDocumentHeader = (title, id, status = '') => {
 const generateReceiveDocument = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown', contact: '' };
     const branch = findByKey(state.branches, 'branchCode', data.branchCode) || { branchName: 'Unknown' };
-    
     let itemsHtml = '', totalValue = 0;
     data.items.forEach(item => {
         const itemTotal = item.quantity * item.cost;
         totalValue += itemTotal;
-        itemsHtml += `<tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName}</td>
-            <td style="text-align:center">${item.quantity.toFixed(2)}</td>
-            <td style="text-align:right">${item.cost.toFixed(2)}</td>
-            <td style="text-align:right">${itemTotal.toFixed(2)}</td>
-        </tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName}</td><td style="text-align:center">${item.quantity.toFixed(2)}</td><td style="text-align:right">${item.cost.toFixed(2)}</td><td style="text-align:right">${itemTotal.toFixed(2)}</td></tr>`;
     });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Goods Received Note', data.batchId, 'RECEIVED')}
-        
-        <div class="doc-info-grid">
-            <div class="info-col">
-                <span class="info-label">From Supplier</span>
-                <div class="info-value">
-                    <strong>${supplier.name}</strong><br>
-                    ${supplier.contact || ''}<br>
-                    ID: ${supplier.supplierCode || data.supplierCode}
-                </div>
-            </div>
-            <div class="info-col">
-                <span class="info-label">Received At</span>
-                <div class="info-value">
-                    <strong>${branch.branchName}</strong><br>
-                    Branch ID: ${branch.branchCode || data.branchCode}
-                </div>
-            </div>
-            <div class="info-col" style="flex: 0 0 200px;">
-                <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                    <tr><td class="label">Invoice #:</td><td class="val">${data.invoiceNumber}</td></tr>
-                    <tr><td class="label">PO Ref:</td><td class="val">${data.poId || 'N/A'}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="doc-table-container">
-            <table class="doc-table">
-                <thead>
-                    <tr><th>Code</th><th>Item Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr>
-                </thead>
-                <tbody>${itemsHtml}</tbody>
-            </table>
-        </div>
-
-        <div class="doc-totals">
-            <div class="totals-box">
-                <div class="total-row final">
-                    <span>Total Value:</span>
-                    <span>${totalValue.toFixed(2)} EGP</span>
-                </div>
-            </div>
-        </div>
-
-        ${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}
-
-        <div class="doc-signatures">
-            <div class="signature-box">Received By</div>
-            <div class="signature-box">Authorized Signature</div>
-        </div>
-    </div>`;
+    const content = `<div class="printable-document">${getDocumentHeader('Goods Received Note', data.batchId, 'RECEIVED')}<div class="doc-info-grid"><div class="info-col"><span class="info-label">From Supplier</span><div class="info-value"><strong>${supplier.name}</strong><br>${supplier.contact || ''}<br>ID: ${supplier.supplierCode || data.supplierCode}</div></div><div class="info-col"><span class="info-label">Received At</span><div class="info-value"><strong>${branch.branchName}</strong><br>Branch ID: ${branch.branchCode || data.branchCode}</div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr><tr><td class="label">Invoice #:</td><td class="val">${data.invoiceNumber}</td></tr><tr><td class="label">PO Ref:</td><td class="val">${data.poId || 'N/A'}</td></tr></table></div></div><div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead><tbody>${itemsHtml}</tbody></table></div><div class="doc-totals"><div class="totals-box"><div class="total-row final"><span>Total Value:</span><span>${totalValue.toFixed(2)} EGP</span></div></div></div>${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}<div class="doc-signatures"><div class="signature-box">Received By</div><div class="signature-box">Authorized Signature</div></div></div>`;
     printContent(content);
 };
 
 const generateTransferDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toBranch = findByKey(state.branches, 'branchCode', data.toBranchCode) || { branchName: 'Unknown' };
-    
     let itemsHtml = '';
     data.items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { unit: 'Units' };
-        itemsHtml += `<tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName || fullItem.name}</td>
-            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
-            <td style="text-align:center">${fullItem.unit}</td>
-        </tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${fullItem.unit}</td></tr>`;
     });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Internal Transfer', data.batchId, data.Status || 'TRANSFER')}
-        
-        <div class="doc-info-grid">
-            <div class="info-col">
-                <span class="info-label">From Branch (Source)</span>
-                <div class="info-value">
-                    <strong>${fromBranch.branchName}</strong><br>
-                    ID: ${fromBranch.branchCode}
-                </div>
-            </div>
-            <div class="info-col">
-                <span class="info-label">To Branch (Destination)</span>
-                <div class="info-value">
-                    <strong>${toBranch.branchName}</strong><br>
-                    ID: ${toBranch.branchCode}
-                </div>
-            </div>
-            <div class="info-col" style="flex: 0 0 200px;">
-                <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                    <tr><td class="label">Ref #:</td><td class="val">${data.ref}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="doc-table-container">
-            <table class="doc-table">
-                <thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Quantity</th><th style="text-align:center">Unit</th></tr></thead>
-                <tbody>${itemsHtml}</tbody>
-            </table>
-        </div>
-
-        ${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}
-
-        <div class="doc-signatures">
-            <div class="signature-box">Sent By</div>
-            <div class="signature-box">Received By</div>
-        </div>
-    </div>`;
+    const content = `<div class="printable-document">${getDocumentHeader('Internal Transfer', data.batchId, data.Status || 'TRANSFER')}<div class="doc-info-grid"><div class="info-col"><span class="info-label">From Branch (Source)</span><div class="info-value"><strong>${fromBranch.branchName}</strong><br>ID: ${fromBranch.branchCode}</div></div><div class="info-col"><span class="info-label">To Branch (Destination)</span><div class="info-value"><strong>${toBranch.branchName}</strong><br>ID: ${toBranch.branchCode}</div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr><tr><td class="label">Ref #:</td><td class="val">${data.ref}</td></tr></table></div></div><div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Quantity</th><th style="text-align:center">Unit</th></tr></thead><tbody>${itemsHtml}</tbody></table></div>${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}<div class="doc-signatures"><div class="signature-box">Sent By</div><div class="signature-box">Received By</div></div></div>`;
     printContent(content);
 };
 
 const generateIssueDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
-    
     let itemsHtml = '';
     data.items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { unit: 'Units' };
-        itemsHtml += `<tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName || fullItem.name}</td>
-            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
-            <td style="text-align:center">${fullItem.unit}</td>
-        </tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${fullItem.unit}</td></tr>`;
     });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Stock Issue Note', data.batchId)}
-        
-        <div class="doc-info-grid">
-            <div class="info-col">
-                <span class="info-label">Issued From</span>
-                <div class="info-value">
-                    <strong>${fromBranch.branchName}</strong>
-                </div>
-            </div>
-            <div class="info-col">
-                <span class="info-label">Issued To Section</span>
-                <div class="info-value">
-                    <strong>${toSection.sectionName}</strong>
-                </div>
-            </div>
-            <div class="info-col" style="flex: 0 0 200px;">
-                <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                    <tr><td class="label">Ref #:</td><td class="val">${data.ref}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="doc-table-container">
-            <table class="doc-table">
-                <thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Quantity</th><th style="text-align:center">Unit</th></tr></thead>
-                <tbody>${itemsHtml}</tbody>
-            </table>
-        </div>
-
-        ${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}
-
-        <div class="doc-signatures">
-            <div class="signature-box">Issued By</div>
-            <div class="signature-box">Received By</div>
-        </div>
-    </div>`;
+    const content = `<div class="printable-document">${getDocumentHeader('Stock Issue Note', data.batchId)}<div class="doc-info-grid"><div class="info-col"><span class="info-label">Issued From</span><div class="info-value"><strong>${fromBranch.branchName}</strong></div></div><div class="info-col"><span class="info-label">Issued To Section</span><div class="info-value"><strong>${toSection.sectionName}</strong></div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr><tr><td class="label">Ref #:</td><td class="val">${data.ref}</td></tr></table></div></div><div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Quantity</th><th style="text-align:center">Unit</th></tr></thead><tbody>${itemsHtml}</tbody></table></div>${data.notes ? `<div class="doc-notes"><strong>Notes:</strong> ${data.notes}</div>` : ''}<div class="doc-signatures"><div class="signature-box">Issued By</div><div class="signature-box">Received By</div></div></div>`;
     printContent(content);
 };
 
 const generatePODocument = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
     let itemsHtml = '', totalValue = 0;
-    
     data.items.forEach(item => {
         const itemDetails = findByKey(state.items, 'code', item.itemCode) || {name: "Unknown"};
         const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0);
         totalValue += itemTotal;
-        itemsHtml += `<tr>
-            <td>${item.itemCode}</td>
-            <td>${itemDetails.name}</td>
-            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
-            <td style="text-align:right">${parseFloat(item.cost).toFixed(2)}</td>
-            <td style="text-align:right">${itemTotal.toFixed(2)}</td>
-        </tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${itemDetails.name}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:right">${parseFloat(item.cost).toFixed(2)}</td><td style="text-align:right">${itemTotal.toFixed(2)}</td></tr>`;
     });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Purchase Order', data.poId || data.batchId, data.Status || 'DRAFT')}
-        
-        <div class="doc-info-grid">
-            <div class="info-col">
-                <span class="info-label">Vendor</span>
-                <div class="info-value">
-                    <strong>${supplier.name}</strong><br>
-                    ${supplier.contact || ''}
-                </div>
-            </div>
-            <div class="info-col" style="flex: 0 0 200px;">
-                <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                    <tr><td class="label">PO #:</td><td class="val">${data.poId || data.batchId}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="doc-table-container">
-            <table class="doc-table">
-                <thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead>
-                <tbody>${itemsHtml}</tbody>
-            </table>
-        </div>
-
-        <div class="doc-totals">
-            <div class="totals-box">
-                <div class="total-row final">
-                    <span>Total Amount:</span>
-                    <span>${totalValue.toFixed(2)} EGP</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="doc-notes">
-            <strong>Notes:</strong> ${data.notes || 'None'}
-        </div>
-
-        <div class="doc-signatures">
-            <div class="signature-box">Authorized By: ${data.createdBy || state.currentUser.Name}</div>
-            <div class="signature-box">Supplier Acceptance</div>
-        </div>
-    </div>`;
+    const content = `<div class="printable-document">${getDocumentHeader('Purchase Order', data.poId || data.batchId, data.Status || 'DRAFT')}<div class="doc-info-grid"><div class="info-col"><span class="info-label">Vendor</span><div class="info-value"><strong>${supplier.name}</strong><br>${supplier.contact || ''}</div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr><tr><td class="label">PO #:</td><td class="val">${data.poId || data.batchId}</td></tr></table></div></div><div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead><tbody>${itemsHtml}</tbody></table></div><div class="doc-totals"><div class="totals-box"><div class="total-row final"><span>Total Amount:</span><span>${totalValue.toFixed(2)} EGP</span></div></div></div><div class="doc-notes"><strong>Notes:</strong> ${data.notes || 'None'}</div><div class="doc-signatures"><div class="signature-box">Authorized By: ${data.createdBy || state.currentUser.Name}</div><div class="signature-box">Supplier Acceptance</div></div></div>`;
     printContent(content);
 };
 
 const generatePaymentVoucher = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
     let invoicesHtml = '';
-    data.payments.forEach(p => {
-        invoicesHtml += `<tr><td>${p.invoiceNumber}</td><td style="text-align:right">${p.amount.toFixed(2)} EGP</td></tr>`;
-    });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Payment Voucher', data.payments[0].paymentId)}
-        
-        <div class="doc-info-grid">
-            <div class="info-col">
-                <span class="info-label">Paid To</span>
-                <div class="info-value"><strong>${supplier.name}</strong></div>
-            </div>
-            <div class="info-col">
-                <span class="info-label">Payment Method</span>
-                <div class="info-value">${data.method}</div>
-            </div>
-            <div class="info-col" style="flex: 0 0 200px;">
-                <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="doc-table-container">
-            <h4 style="margin: 0 0 10px 0; color: #555;">Payment Allocation</h4>
-            <table class="doc-table">
-                <thead><tr><th>Invoice #</th><th style="text-align:right">Amount Paid</th></tr></thead>
-                <tbody>${invoicesHtml}</tbody>
-            </table>
-        </div>
-
-        <div class="doc-totals">
-            <div class="totals-box">
-                <div class="total-row final">
-                    <span>Total Paid:</span>
-                    <span>${data.totalAmount.toFixed(2)} EGP</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="doc-signatures">
-            <div class="signature-box">Prepared By</div>
-            <div class="signature-box">Approved By</div>
-        </div>
-    </div>`;
+    data.payments.forEach(p => { invoicesHtml += `<tr><td>${p.invoiceNumber}</td><td style="text-align:right">${p.amount.toFixed(2)} EGP</td></tr>`; });
+    const content = `<div class="printable-document">${getDocumentHeader('Payment Voucher', data.payments[0].paymentId)}<div class="doc-info-grid"><div class="info-col"><span class="info-label">Paid To</span><div class="info-value"><strong>${supplier.name}</strong></div></div><div class="info-col"><span class="info-label">Payment Method</span><div class="info-value">${data.method}</div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr></table></div></div><div class="doc-table-container"><h4 style="margin: 0 0 10px 0; color: #555;">Payment Allocation</h4><table class="doc-table"><thead><tr><th>Invoice #</th><th style="text-align:right">Amount Paid</th></tr></thead><tbody>${invoicesHtml}</tbody></table></div><div class="doc-totals"><div class="totals-box"><div class="total-row final"><span>Total Paid:</span><span>${data.totalAmount.toFixed(2)} EGP</span></div></div></div><div class="doc-signatures"><div class="signature-box">Prepared By</div><div class="signature-box">Approved By</div></div></div>`;
     printContent(content);
 };
 
 const generateReturnDocument = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
     const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
-    
     let itemsHtml = '', totalValue = 0;
     data.items.forEach(item => {
         const itemTotal = item.quantity * item.cost;
         totalValue += itemTotal;
-        itemsHtml += `<tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName}</td>
-            <td style="text-align:center">${item.quantity.toFixed(2)}</td>
-            <td style="text-align:right">${item.cost.toFixed(2)}</td>
-            <td style="text-align:right">${itemTotal.toFixed(2)}</td>
-        </tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName}</td><td style="text-align:center">${item.quantity.toFixed(2)}</td><td style="text-align:right">${item.cost.toFixed(2)}</td><td style="text-align:right">${itemTotal.toFixed(2)}</td></tr>`;
     });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Debit Note / Return', data.ref)}
-        
-        <div class="doc-info-grid">
-            <div class="info-col">
-                <span class="info-label">Returned To</span>
-                <div class="info-value"><strong>${supplier.name}</strong></div>
-            </div>
-            <div class="info-col">
-                <span class="info-label">Returned From</span>
-                <div class="info-value"><strong>${branch.branchName}</strong></div>
-            </div>
-            <div class="info-col" style="flex: 0 0 200px;">
-                <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="doc-table-container">
-            <table class="doc-table">
-                <thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Cost</th><th style="text-align:right">Total</th></tr></thead>
-                <tbody>${itemsHtml}</tbody>
-            </table>
-        </div>
-
-        <div class="doc-totals">
-            <div class="totals-box">
-                <div class="total-row final">
-                    <span>Total Value:</span>
-                    <span>${totalValue.toFixed(2)} EGP</span>
-                </div>
-            </div>
-        </div>
-
-        ${data.notes ? `<div class="doc-notes"><strong>Reason:</strong> ${data.notes}</div>` : ''}
-        
-        <div class="doc-signatures">
-            <div class="signature-box">Returned By</div>
-            <div class="signature-box">Supplier Signature</div>
-        </div>
-    </div>`;
+    const content = `<div class="printable-document">${getDocumentHeader('Debit Note / Return', data.ref)}<div class="doc-info-grid"><div class="info-col"><span class="info-label">Returned To</span><div class="info-value"><strong>${supplier.name}</strong></div></div><div class="info-col"><span class="info-label">Returned From</span><div class="info-value"><strong>${branch.branchName}</strong></div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr></table></div></div><div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Cost</th><th style="text-align:right">Total</th></tr></thead><tbody>${itemsHtml}</tbody></table></div><div class="doc-totals"><div class="totals-box"><div class="total-row final"><span>Total Value:</span><span>${totalValue.toFixed(2)} EGP</span></div></div></div>${data.notes ? `<div class="doc-notes"><strong>Reason:</strong> ${data.notes}</div>` : ''}<div class="doc-signatures"><div class="signature-box">Returned By</div><div class="signature-box">Supplier Signature</div></div></div>`;
     printContent(content);
 };
 
 const generateRequestIssueDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
-    
     let itemsHtml = '';
     data.items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
-        itemsHtml += `<tr>
-            <td>${item.itemCode}</td>
-            <td>${item.itemName || fullItem.name}</td>
-            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
-            <td style="text-align:center">${fullItem.unit}</td>
-        </tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${fullItem.unit}</td></tr>`;
     });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Stock Issue (Draft)', data.ref, 'DRAFT')}
-        
-        <div class="doc-info-grid">
-            <div class="info-col">
-                <span class="info-label">From Branch</span>
-                <div class="info-value"><strong>${fromBranch.branchName}</strong></div>
-            </div>
-            <div class="info-col">
-                <span class="info-label">To Section</span>
-                <div class="info-value"><strong>${toSection.sectionName}</strong></div>
-            </div>
-            <div class="info-col" style="flex: 0 0 200px;">
-                <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                </table>
-            </div>
-        </div>
-
-        <div class="doc-table-container">
-            <table class="doc-table">
-                <thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:center">Unit</th></tr></thead>
-                <tbody>${itemsHtml}</tbody>
-            </table>
-        </div>
-
-        <div class="doc-notes">
-            <p><em>This is a draft generated from an Item Request approval.</em></p>
-            ${data.notes ? `<strong>Notes:</strong> ${data.notes}` : ''}
-        </div>
-    </div>`;
+    const content = `<div class="printable-document">${getDocumentHeader('Stock Issue (Draft)', data.ref, 'DRAFT')}<div class="doc-info-grid"><div class="info-col"><span class="info-label">From Branch</span><div class="info-value"><strong>${fromBranch.branchName}</strong></div></div><div class="info-col"><span class="info-label">To Section</span><div class="info-value"><strong>${toSection.sectionName}</strong></div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr></table></div></div><div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:center">Unit</th></tr></thead><tbody>${itemsHtml}</tbody></table></div><div class="doc-notes"><p><em>This is a draft generated from an Item Request approval.</em></p>${data.notes ? `<strong>Notes:</strong> ${data.notes}` : ''}</div></div>`;
     printContent(content);
 };
 
 const generateAdjustmentDocument = (data) => {
     const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
-    
     let itemsHtml = '';
     data.items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
         const typeDisplay = item.type === 'adjustment_in' ? 'Increase (+)' : 'Decrease (-)';
-        itemsHtml += `<tr>
-            <td>${item.itemCode}</td>
-            <td>${fullItem.name}</td>
-            <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
-            <td style="text-align:center">${typeDisplay}</td>
-        </tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${fullItem.name}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${typeDisplay}</td></tr>`;
     });
-
-    const content = `
-    <div class="printable-document">
-        ${getDocumentHeader('Stock Adjustment Note', data.batchId)}
-        <div class="doc-info-grid">
-            <div class="info-col"><span class="info-label">Branch</span><div class="info-value"><strong>${branch.branchName}</strong></div></div>
-            <div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr><tr><td class="label">Ref:</td><td class="val">${data.ref}</td></tr></table></div>
-        </div>
-        <div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:center">Type</th></tr></thead><tbody>${itemsHtml}</tbody></table></div>
-        <div class="doc-notes"><strong>Notes:</strong> ${data.notes || 'None'}</div>
-        <div class="doc-signatures"><div class="signature-box">Adjusted By</div><div class="signature-box">Approved By</div></div>
-    </div>`;
+    const content = `<div class="printable-document">${getDocumentHeader('Stock Adjustment Note', data.batchId)}<div class="doc-info-grid"><div class="info-col"><span class="info-label">Branch</span><div class="info-value"><strong>${branch.branchName}</strong></div></div><div class="info-col" style="flex: 0 0 200px;"><table class="meta-table"><tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr><tr><td class="label">Ref:</td><td class="val">${data.ref}</td></tr></table></div></div><div class="doc-table-container"><table class="doc-table"><thead><tr><th>Code</th><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:center">Type</th></tr></thead><tbody>${itemsHtml}</tbody></table></div><div class="doc-notes"><strong>Notes:</strong> ${data.notes || 'None'}</div><div class="doc-signatures"><div class="signature-box">Adjusted By</div><div class="signature-box">Approved By</div></div></div>`;
     printContent(content);
 };
