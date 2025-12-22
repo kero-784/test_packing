@@ -706,8 +706,10 @@ const getDocumentHeader = (title, id, status = '') => {
                  ? state.companySettings 
                  : {}; 
     
+    // Fallback or empty strings
     const companyName = info.CompanyName || 'PACKING STOCK';
     const address = info.Address || '';
+    
     // Build strings only if data exists
     const taxInfo = [
         info.TaxID ? `Tax ID: ${info.TaxID}` : '',
