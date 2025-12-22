@@ -1,3 +1,5 @@
+// --- START OF FILE app.js ---
+
 document.addEventListener('DOMContentLoaded', () => {
     Logger.info('DOM fully loaded. Starting initialization...');
 
@@ -111,8 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showView(firstVisibleView);
         updateUserBranchDisplay();
         
-        // Trigger badge updates immediately
-        updatePendingRequestsWidget();
+        // FIX: Ensure badges are updated immediately on load
+        setTimeout(updatePendingRequestsWidget, 500);
     };
 
     // --- NAVIGATION LOGIC ---
@@ -171,6 +173,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.refreshViewData = async (viewId) => {
         if (!state.currentUser) return;
         Logger.debug(`refreshViewData: refreshing data for ${viewId}...`);
+
+        // FIX: Always update badges when view data refreshes
+        updatePendingRequestsWidget();
 
         try {
             switch(viewId) {
@@ -296,7 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         startDate: txStartDate ? txStartDate.value : null,
                         endDate: txEndDate ? txEndDate.value : null,
                         type: txType ? txType.value : null,
-                        // FIX: Changed 'branch' to 'txBranch' to avoid reference error
                         branch: txBranch ? txBranch.value : null,
                         searchTerm: txSearch ? txSearch.value : null
                     }); 
@@ -595,7 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const startDate = document.getElementById('tx-filter-start-date');
                     const endDate = document.getElementById('tx-filter-end-date');
                     const type = document.getElementById('tx-filter-type');
-                    // FIX: Ensure variable name matches
                     const txBranch = document.getElementById('tx-filter-branch');
                     const search = document.getElementById('transaction-search');
 
@@ -668,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED - GLOBAL DELEGATION) ---
+    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED) ---
     function attachSubNavListeners() { 
         document.body.addEventListener('click', e => {
             const btn = e.target.closest('.sub-nav-item');
