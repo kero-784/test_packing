@@ -22,12 +22,22 @@ async function attemptLogin(username, loginCode) {
         if (data.user.isDisabled === true || String(data.user.isDisabled).toUpperCase() === 'TRUE') {
             throw new Error('This user account has been disabled. Please contact an administrator.');
         }
+        
+        // --- FIX: State Assignment ---
         state.username = username;
         state.loginCode = loginCode;
         state.currentUser = data.user;
+        
         Object.keys(data).forEach(key => {
-            if (key !== 'user') state[key] = data[key] || [];
+            if (key === 'user') return;
+            // Explicitly handle companySettings to ensure it stays an object
+            if (key === 'companySettings') {
+                state[key] = data[key] || {};
+            } else {
+                state[key] = data[key] || [];
+            }
         });
+        // -----------------------------
         
         const savedLang = localStorage.getItem('userLanguage') || 'en';
         state.currentLanguage = savedLang;
