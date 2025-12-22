@@ -47,80 +47,79 @@ document.addEventListener('DOMContentLoaded', () => {
     window.updateReturnGrandTotal = () => { try { let grandTotal = 0; (state.currentReturnList || []).forEach(item => { grandTotal += (parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0); }); const el = document.getElementById('return-grand-total'); if(el) el.textContent = `${grandTotal.toFixed(2)} EGP`; } catch(e) { Logger.error('Error in updateReturnGrandTotal', e); } };
 
     // =========================================================
-    // 3. CORE INITIALIZATION
+    // 3. UI HELPER FUNCTIONS (DEFINED BEFORE USAGE TO FIX ERRORS)
     // =========================================================
-    function init() {
-        if(!state.pagination) state.pagination = {};
-
-        // PWA Install Logic
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            if (installBtn) {
-                installBtn.style.display = 'inline-flex';
-                installBtn.addEventListener('click', () => {
-                    installBtn.style.display = 'none';
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then((choiceResult) => {
-                        deferredPrompt = null;
-                    });
-                });
+    
+    function setupRoleBasedNav() {
+        const user = state.currentUser; if (!user) return;
+        const userFirstName = user.Name.split(' ')[0];
+        document.querySelector('.sidebar-header h1').textContent = _t('hi_user', {userFirstName});
+        const navMap = { 'dashboard': 'viewDashboard', 'operations': 'viewOperations', 'purchasing': 'viewPurchasing', 'internal-distribution': 'viewRequests', 'financials': 'viewPayments', 'reports': 'viewReports', 'stock-levels': 'viewStockLevels', 'transaction-history': 'viewTransactionHistory', 'setup': 'viewSetup', 'master-data': 'viewMasterData', 'user-management': 'manageUsers', 'backup': 'opBackupRestore', 'activity-log': 'viewActivityLog', 'adjustments': 'opStockAdjustment' };
+        for (const [view, permission] of Object.entries(navMap)) {
+            const navItem = document.querySelector(`[data-view="${view}"]`);
+            if (navItem) { 
+                let hasPermission = userCan(permission);
+                if (view === 'internal-distribution') hasPermission = userCan('opRequestItems') || userCan('opApproveIssueRequest') || userCan('opApproveResupplyRequest') || userCan('viewReports');
+                if (view === 'operations') hasPermission = userCan('viewOperations');
+                if (view === 'adjustments') hasPermission = userCan('opStockAdjustment') || userCan('opFinancialAdjustment');
+                navItem.parentElement.style.display = hasPermission ? '' : 'none'; 
             }
-        });
-
-        window.addEventListener('appinstalled', () => {
-            if(installBtn) installBtn.style.display = 'none';
-        });
-
-        const langSwitcher = document.getElementById('lang-switcher');
-        const savedLang = localStorage.getItem('userLanguage') || 'en';
-        state.currentLanguage = savedLang;
-        
-        if(langSwitcher) {
-            langSwitcher.value = savedLang;
-            langSwitcher.addEventListener('change', e => {
-                const selectedLang = e.target.value;
-                localStorage.setItem('userLanguage', selectedLang);
-                state.currentLanguage = selectedLang;
-                reloadDataAndRefreshUI();
-            });
         }
-        applyTranslations();
+    }
 
-        if(loginForm) {
-            loginForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const username = loginUsernameInput.value.trim();
-                const code = loginCodeInput.value;
-                if (username && code) attemptLogin(username, code);
+    function updateUserBranchDisplay() {
+        const displayEl = document.getElementById('user-branch-display');
+        if (!state.currentUser || !displayEl) return;
+        const branch = findByKey(state.branches, 'branchCode', state.currentUser.AssignedBranchCode);
+        const section = findByKey(state.sections, 'sectionCode', state.currentUser.AssignedSectionCode);
+        let displayText = '';
+        if (branch) displayText += `${_t('branch')}: ${branch.branchName}`;
+        if (section) displayText += `${displayText ? ' / ' : ''}${_t('section')}: ${section.sectionName}`;
+        displayEl.textContent = displayText;
+    }
+
+    function applyUserUIConstraints() {
+        if (!state.currentUser) return;
+        const branchCode = state.currentUser.AssignedBranchCode;
+        if (branchCode) {
+            ['receive-branch', 'issue-from-branch', 'transfer-from-branch', 'return-branch', 'adjustment-branch'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !userCan('viewAllBranches')) { el.value = branchCode; el.disabled = true; el.dispatchEvent(new Event('change')); }
             });
         }
     }
 
-    // --- MAIN UI SETUP (CALLED AFTER LOGIN) ---
-    window.initializeAppUI = () => {
-        Logger.info('Initializing App UI components...');
-        
-        try {
-            setupRoleBasedNav();
-        } catch(e) { Logger.error('Error setting up nav permissions:', e); }
+    function setupSearch(inputId, renderFn, dataKey, searchKeys) { 
+        const searchInput = document.getElementById(inputId); 
+        if (!searchInput) return; 
+        searchInput.addEventListener('input', e => { 
+            const searchTerm = e.target.value.toLowerCase(); 
+            const dataToFilter = state[dataKey] || []; 
+            renderFn(searchTerm ? dataToFilter.filter(item => searchKeys.some(key => item[key] && String(item[key]).toLowerCase().includes(searchTerm))) : dataToFilter); 
+        }); 
+    }
 
-        try {
-            attachEventListeners();
-            attachSubNavListeners(); 
-            setupPaginationListeners();
-        } catch(e) { Logger.error('Error attaching listeners:', e); }
-        
-        // Find default view and show it
-        let firstVisibleView = 'dashboard';
-        const visibleNavLink = document.querySelector('#main-nav .nav-item:not([style*="display: none"]) a');
-        if(visibleNavLink) firstVisibleView = visibleNavLink.dataset.view;
-
-        showView(firstVisibleView);
-        updateUserBranchDisplay();
-        updatePendingRequestsWidget();
-    };
+    function setupInputTableListeners(tableId, listName, rendererFn) {
+        const table = document.getElementById(tableId); if (!table) return;
+        table.addEventListener('change', e => { 
+            if (e.target.classList.contains('table-input')) { 
+                const index = parseInt(e.target.dataset.index); 
+                const field = e.target.dataset.field; 
+                const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value; 
+                if (state[listName] && state[listName][index] && !isNaN(value)) { 
+                    state[listName][index][field] = value; 
+                } 
+                if (rendererFn) rendererFn(); 
+            } 
+        });
+        table.addEventListener('click', e => { 
+            const btn = e.target.closest('button'); 
+            if (btn && btn.classList.contains('danger') && btn.dataset.index) { 
+                state[listName].splice(btn.dataset.index, 1); 
+                rendererFn(); 
+            } 
+        });
+    }
 
     // =========================================================
     // 4. NAVIGATION & DATA LOADING
@@ -275,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         startDate: txStartDate ? txStartDate.value : null,
                         endDate: txEndDate ? txEndDate.value : null,
                         type: txType ? txType.value : null,
-                        branch: txBranch ? txBranch.value : null, 
+                        branch: txBranch ? txBranch.value : null,
                         searchTerm: txSearch ? txSearch.value : null
                     }); 
                     break;
@@ -327,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             Object.keys(data).forEach(key => { 
                 if (key === 'user') return;
-                // FIX: Ensure companySettings is strictly handled as an object for printing
+                // FIX: Ensure companySettings is always an object for proper printing
                 if (key === 'companySettings') {
                     if (Array.isArray(data[key])) {
                         state[key] = data[key].length > 0 ? data[key][0] : {};
@@ -434,6 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         attachFormListeners();
 
+        // Search listeners using safe lookups
         setupSearch('search-items', renderItemsTable, 'items', ['name', 'code', 'category']);
         setupSearch('search-suppliers', renderSuppliersTable, 'suppliers', ['name', 'supplierCode']);
         setupSearch('search-branches', renderBranchesTable, 'branches', ['branchName', 'branchCode']);
@@ -542,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (tableId === 'table-supplier-adj-report') renderSupplierAdjustmentReport();
     }
 
-    // --- FIX: ROBUST SUB-TAB LISTENER ---
+    // --- FIX: Robust Sub-tab Navigation Logic ---
     function attachSubNavListeners() {
         document.body.addEventListener('click', e => {
             const btn = e.target.closest('.sub-nav-item');
@@ -615,15 +615,26 @@ document.addEventListener('DOMContentLoaded', () => {
         setupInputTableListeners('table-adjustment-list', 'currentAdjustmentList', renderAdjustmentListTable);
     }
 
-    function handleGlobalClicks(e) { }
+    // --- CLICK HANDLERS ---
+    function handleGlobalClicks(e) {
+         // This is a placeholder if you need global click handling not covered below
+    }
 
     function handleMainContentClicks(e) {
         const btn = e.target.closest('button');
         if (!btn) return;
-        if (btn.classList.contains('btn-add-new')) openEditModal(btn.dataset.type, null);
+        
+        Logger.debug(`Main content button clicked: ${btn.id || btn.className}`);
+        
+        // --- ADD BUTTON LOGIC ---
+        if (btn.classList.contains('btn-add-new')) {
+            openEditModal(btn.dataset.type, null); // Pass null to create new
+        }
+
         if (btn.dataset.context) openItemSelectorModal(e);
         if (btn.dataset.selectionType) openSelectionModal(btn.dataset.selectionType);
         if (btn.id === 'btn-select-invoices') openInvoiceSelectorModal();
+        
         if (btn.classList.contains('btn-edit')) openEditModal(btn.dataset.type, btn.dataset.id);
         if (btn.classList.contains('btn-history')) openHistoryModal(btn.dataset.id);
         if (btn.id === 'btn-add-new-user') openEditModal('user', null);
@@ -638,13 +649,22 @@ document.addEventListener('DOMContentLoaded', () => {
              } else if (type === 'adjustment') {
                  const group = state.transactions.filter(t => t.batchId === batchId);
                  if(group.length) generateAdjustmentDocument({ ...group[0], items: group });
-             } else if (type === 'issue') {
-                  const group = state.itemRequests.filter(r => r.RequestID === batchId);
+             } else if (type === 'issue') { // Explicit handle for My Requests View/Print
+                  const group = state.itemRequests.filter(r => r.RequestID === batchId); // Check if it's a request ID
                   if (group.length > 0) {
+                      // It's a request, find the associated transaction if approved/completed
                       const first = group[0];
                       const items = group.map(r => ({ itemCode: r.ItemCode, quantity: r.IssuedQuantity || r.Quantity }));
-                      generateRequestIssueDocument({ ref: first.RequestID, date: first.Date, fromBranchCode: first.FromSection, sectionCode: first.ToBranch, items: items, notes: first.StatusNotes });
+                      generateRequestIssueDocument({
+                          ref: first.RequestID,
+                          date: first.Date,
+                          fromBranchCode: first.FromSection, 
+                          sectionCode: first.ToBranch,
+                          items: items,
+                          notes: first.StatusNotes
+                      });
                   } else {
+                      // Fallback for standard transaction lookup
                       const transactionGroup = state.transactions.filter(t => t.batchId === batchId);
                        if (transactionGroup.length > 0) {
                              const first = transactionGroup[0];
@@ -664,20 +684,36 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         }
         
-        if (btn.classList.contains('btn-print-supplier-adj')) { const p = findByKey(state.payments, 'paymentId', btn.dataset.id) || findByKey(state.payments, 'invoiceNumber', btn.dataset.id); if(p) generatePaymentVoucher({payments:[p], ...p}); }
+        if (btn.classList.contains('btn-print-supplier-adj')) {
+            const p = findByKey(state.payments, 'paymentId', btn.dataset.id) || findByKey(state.payments, 'invoiceNumber', btn.dataset.id);
+            if(p) generatePaymentVoucher({payments:[p], ...p});
+        }
+        
         if (btn.classList.contains('btn-receive-transfer')) openViewTransferModal(btn.dataset.batchId);
         if (btn.classList.contains('btn-edit-transfer')) openPOEditModal(btn.dataset.batchId); 
         if (btn.classList.contains('btn-cancel-transfer')) { const batchId = btn.dataset.batchId; if (confirm(`Cancel transfer ${batchId}?`)) { postData('cancelTransfer', { batchId }, btn, 'Cancelling...').then(res => res && reloadDataAndRefreshUI()); } }
+        
         if (btn.classList.contains('btn-approve-request')) openApproveRequestModal(btn.dataset.id); 
         if (btn.classList.contains('btn-reject-request')) { if(confirm('Reject request?')) postData('rejectItemRequest', { requestId: btn.dataset.id }, btn, 'Rejecting...').then(res => res && reloadDataAndRefreshUI()); }
+        
         if (btn.classList.contains('btn-edit-po')) openPOEditModal(btn.dataset.poId);
         if (btn.classList.contains('btn-edit-invoice')) openInvoiceEditModal(btn.dataset.batchId);
-        if (btn.classList.contains('btn-approve-financial') || btn.classList.contains('btn-reject-financial')) { const id = btn.dataset.id, type = btn.dataset.type, action = btn.classList.contains('btn-approve-financial') ? 'approveFinancial' : 'rejectFinancial'; if (confirm(`Confirm ${action.replace('Financial','')} for ${type}?`)) { postData(action, { id, type }, btn, 'Processing...').then(res => { if(res) { showToast('Processed successfully', 'success'); reloadDataAndRefreshUI(); } }); } }
+        
+        if (btn.classList.contains('btn-approve-financial') || btn.classList.contains('btn-reject-financial')) {
+            const id = btn.dataset.id, type = btn.dataset.type, action = btn.classList.contains('btn-approve-financial') ? 'approveFinancial' : 'rejectFinancial';
+            if (confirm(`Confirm ${action.replace('Financial','')} for ${type}?`)) {
+                postData(action, { id, type }, btn, 'Processing...').then(res => { if(res) { showToast('Processed successfully', 'success'); reloadDataAndRefreshUI(); } });
+            }
+        }
+        
         if (btn.id === 'btn-generate-supplier-statement') renderSupplierStatement(document.getElementById('supplier-statement-select').value, document.getElementById('statement-start-date').value, document.getElementById('statement-end-date').value);
         if (btn.id === 'btn-generate-consumption-report') renderUnifiedConsumptionReport();
+        
+        // Print Button Handlers
         if (btn.id === 'btn-print-pending-requests') window.printReport('subview-pending-approval');
     }
 
+    // --- LOGIC HELPERS ---
     async function handleTransactionSubmit(payload, buttonEl) {
         const action = payload.type === 'po' ? 'addPurchaseOrder' : 'addTransactionBatch';
         const result = await postData(action, payload, buttonEl, 'Submitting...');
@@ -694,8 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- NEW HANDLERS FOR CONFIRM RECEIPT MODAL ---
-    
+    // --- FIX: CONFIRM RECEIPT MODAL LOGIC & LAYOUT ---
     function openViewTransferModal(batchId) {
         const txs = state.transactions.filter(t => t.batchId === batchId);
         if (!txs.length) return;
@@ -728,6 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemDef = findByKey(state.items, 'code', t.itemCode);
             const itemName = itemDef ? itemDef.name : '<span style="color:red">Unknown Item</span>';
             const qty = parseFloat(t.quantity);
+            // Ensure Qty is always displayed
             const displayQty = isNaN(qty) ? '0.00' : qty.toFixed(2);
             
             html += `<tr>
@@ -741,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('view-transfer-modal-body').innerHTML = html;
         document.getElementById('view-transfer-modal-title').textContent = `${_t('confirm_receipt')}: ${first.ref || batchId}`;
         
-        // Store ID for the action buttons
+        // Store ID for buttons
         document.getElementById('btn-confirm-receive-transfer').dataset.batchId = batchId;
         document.getElementById('btn-reject-transfer').dataset.batchId = batchId;
         
