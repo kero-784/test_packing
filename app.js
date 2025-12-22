@@ -251,20 +251,16 @@ document.addEventListener('DOMContentLoaded', () => {
                      renderPendingRequests();
                      renderIssueListTable();
                      
-                     const branchCount = document.getElementById('consumption-branch-count');
-                     if(branchCount) branchCount.textContent = `${state.reportSelectedBranches.size} selected`;
-                     const sectionCount = document.getElementById('consumption-section-count');
-                     if(sectionCount) sectionCount.textContent = `${state.reportSelectedSections.size} selected`;
-                     const itemCount = document.getElementById('consumption-item-count');
-                     if(itemCount) itemCount.textContent = `${state.reportSelectedItems.size} selected`;
+                     document.getElementById('consumption-branch-count').textContent = `${state.reportSelectedBranches.size} selected`;
+                     document.getElementById('consumption-section-count').textContent = `${state.reportSelectedSections.size} selected`;
+                     document.getElementById('consumption-item-count').textContent = `${state.reportSelectedItems.size} selected`;
                      break;
 
                 case 'financials':
                     populateOptions(document.getElementById('payment-supplier-select'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
                     renderPaymentList();
-                    const btnInv = document.getElementById('btn-select-invoices');
-                    if(btnInv) btnInv.disabled = true;
+                    if(document.getElementById('btn-select-invoices')) document.getElementById('btn-select-invoices').disabled = true;
                     break;
                     
                 case 'purchasing':
@@ -285,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     renderItemCentricStockView();
-                    const itemInq = document.getElementById('item-inquiry-search');
                     if(document.getElementById('item-inquiry-results')) document.getElementById('item-inquiry-results').innerHTML = '';
                     break;
                     
@@ -307,8 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         startDate: txStartDate ? txStartDate.value : null,
                         endDate: txEndDate ? txEndDate.value : null,
                         type: txType ? txType.value : null,
-                        // --- FIX: Use 'txBranch' instead of undefined 'branch'
-                        branch: txBranch ? txBranch.value : null, 
+                        branch: txBranch ? txBranch.value : null, // Fixed variable reference
                         searchTerm: txSearch ? txSearch.value : null
                     }); 
                     break;
@@ -351,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyUserUIConstraints();
             applyTranslations();
             
-            // Ensure badges are updated whenever view data is refreshed
+            // --- FIX: Ensure badges are updated whenever view data is refreshed ---
             updatePendingRequestsWidget();
             
         } catch (e) {
@@ -373,11 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             Object.keys(data).forEach(key => { 
                 if (key === 'user') return;
-                if (key === 'companySettings') {
-                    state[key] = data[key] || {};
-                } else {
-                    state[key] = data[key] || state[key]; 
-                }
+                state[key] = (key === 'companySettings') ? (data[key] || {}) : (data[key] || state[key]); 
             }); 
             
             updateUserBranchDisplay(); 
@@ -1310,15 +1300,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openViewTransferModal(batchId) {
         const txs = state.transactions.filter(t => t.batchId === batchId);
-        
+        if (!txs.length) return;
+
+        const first = txs[0];
+        const fromBranch = findByKey(state.branches, 'branchCode', first.fromBranchCode)?.branchName || first.fromBranchCode;
+        const toBranch = findByKey(state.branches, 'branchCode', first.toBranchCode)?.branchName || first.toBranchCode;
+        const dateSent = new Date(first.date).toLocaleString();
+
         let html = `
+        <div style="background-color: #f8fafc; padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                <div><span style="color: #64748b; font-weight: 600;">From Branch:</span> <div style="font-weight: 700;">${fromBranch}</div></div>
+                <div><span style="color: #64748b; font-weight: 600;">To Branch:</span> <div style="font-weight: 700;">${toBranch}</div></div>
+                <div style="grid-column: 1/-1;"><span style="color: #64748b; font-weight: 600;">Date Sent:</span> <div style="font-weight: 700;">${dateSent}</div></div>
+            </div>
+        </div>
         <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 25%;">Code</th>
-                        <th style="width: 50%;">Item Name</th>
-                        <th style="width: 25%;">Qty</th>
+                        <th style="width: 25%;">${_t('table_h_code')}</th>
+                        <th style="width: 50%;">${_t('item_name')}</th>
+                        <th style="width: 25%;">${_t('table_h_quantity')}</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1326,29 +1329,14 @@ document.addEventListener('DOMContentLoaded', () => {
         txs.forEach(t => {
             const itemDef = findByKey(state.items, 'code', t.itemCode);
             const itemName = itemDef ? itemDef.name : '<span style="color:red">Unknown Item</span>';
-            
-            html += `
-            <tr>
-                <td style="font-weight: 600; color: var(--primary-color);">${t.itemCode}</td>
-                <td>${itemName}</td>
-                <td style="font-weight: 700; font-size: 15px;">${parseFloat(t.quantity).toFixed(2)}</td>
-            </tr>`;
+            html += `<tr><td style="font-weight: 600; color: var(--primary-color);">${t.itemCode}</td><td>${itemName}</td><td style="font-weight: 700; font-size: 15px;">${parseFloat(t.quantity).toFixed(2)}</td></tr>`;
         });
 
         html += `</tbody></table></div>`;
-        
-        // Inject into modal body
         document.getElementById('view-transfer-modal-body').innerHTML = html;
-        
-        // Update Title with Reference if available
-        const ref = txs[0].ref || batchId;
-        document.getElementById('view-transfer-modal-title').textContent = `${_t('confirm_receipt')}: ${ref}`;
-
-        // Bind Buttons
+        document.getElementById('view-transfer-modal-title').textContent = `${_t('confirm_receipt')}: ${first.ref || batchId}`;
         document.getElementById('btn-confirm-receive-transfer').dataset.batchId = batchId;
         document.getElementById('btn-reject-transfer').dataset.batchId = batchId;
-        
-        // Show Modal
         viewTransferModal.classList.add('active');
     }
 
