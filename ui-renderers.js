@@ -55,7 +55,6 @@ function renderCompanyInfoPreview() {
     
     const settings = state.companySettings || {};
     
-    // If empty settings, show a placeholder or message
     if (Object.keys(settings).length === 0) {
         container.innerHTML = `<div class="card"><p style="color:var(--text-secondary);">No company details found. Please update in Company Settings.</p></div>`;
         return;
@@ -373,6 +372,7 @@ function renderPendingTransfers() {
     
     if(!container || !table) return;
     
+    // Ensure responsive wrapper
     if (!table.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -383,12 +383,15 @@ function renderPendingTransfers() {
     const tbody = table.querySelector('tbody');
     let html = '';
     
+    // Group by Batch ID
     const groupedTransfers = {};
     (state.transactions || []).filter(t => t.type === 'transfer_out' && t.Status === 'In Transit').forEach(t => {
-        if (!groupedTransfers[t.batchId]) groupedTransfers[t.batchId] = { ...t, items: [] };
+        if (!groupedTransfers[t.batchId]) groupedTransfers[t.batchId] = { ...t, items: [], totalQty: 0 };
         groupedTransfers[t.batchId].items.push(t);
+        groupedTransfers[t.batchId].totalQty += (parseFloat(t.quantity) || 0);
     });
     
+    // Filter by visibility (admin or receiving branch)
     const visibleTransfers = Object.values(groupedTransfers).filter(t => {
         if (userCan('viewAllBranches')) return true;
         return String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode);
@@ -399,10 +402,34 @@ function renderPendingTransfers() {
         return;
     }
     
+    // Render Rows
     visibleTransfers.forEach(t => {
         const fromBranch = findByKey(state.branches, 'branchCode', t.fromBranchCode)?.branchName || t.fromBranchCode;
-        html += `<tr><td>${new Date(t.date).toLocaleString()}</td><td>${fromBranch}</td><td>${t.ref}</td><td>${t.items.length}</td><td><button class="primary small btn-receive-transfer" data-batch-id="${t.batchId}">${_t('view_confirm')}</button></td></tr>`;
+        // Format date to include time
+        const dateTime = new Date(t.date).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        
+        // Updated Columns: Date/Time | From Branch | Ref | Quantity | Actions
+        html += `<tr>
+            <td>${dateTime}</td>
+            <td>${fromBranch}</td>
+            <td>${t.ref || t.batchId}</td>
+            <td style="font-weight:bold;">${t.totalQty.toFixed(2)}</td>
+            <td><button class="primary small btn-receive-transfer" data-batch-id="${t.batchId}">${_t('view_confirm')}</button></td>
+        </tr>`;
     });
+    
+    // Update Header to match columns
+    const thead = table.querySelector('thead tr');
+    if(thead) {
+        thead.innerHTML = `
+            <th>Date & Time</th>
+            <th>From Branch</th>
+            <th>Reference #</th>
+            <th>Total Qty</th>
+            <th>Actions</th>
+        `;
+    }
+
     tbody.innerHTML = html;
     container.style.display = 'block';
 }
@@ -768,7 +795,11 @@ const generateReceiveDocument = (data) => {
     const branch = findByKey(state.branches, 'branchCode', data.branchCode) || { branchName: 'Unknown' };
     
     let itemsHtml = '', totalValue = 0;
-    data.items.forEach(item => {
+    
+    // Handle items
+    const items = data.items || [data];
+    
+    items.forEach(item => {
         const itemTotal = item.quantity * item.cost;
         totalValue += itemTotal;
         itemsHtml += `<tr>
@@ -841,40 +872,43 @@ const generateTransferDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toBranch = findByKey(state.branches, 'branchCode', data.toBranchCode) || { branchName: 'Unknown' };
     
+    // Handle both single item object or array of items
+    const items = data.items || [data]; 
     let itemsHtml = '';
-    data.items.forEach(item => {
-        const fullItem = findByKey(state.items, 'code', item.itemCode) || { unit: 'Units' };
+    
+    items.forEach(item => {
+        const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
         itemsHtml += `<tr>
             <td>${item.itemCode}</td>
             <td>${item.itemName || fullItem.name}</td>
             <td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td>
-            <td style="text-align:center">${fullItem.unit}</td>
+            <td style="text-align:center">${fullItem.unit || ''}</td>
         </tr>`;
     });
 
     const content = `
     <div class="printable-document">
-        ${getDocumentHeader('Internal Transfer', data.batchId, data.Status || 'TRANSFER')}
+        ${getDocumentHeader('Internal Transfer Note', data.batchId, data.Status || 'TRANSFER')}
         
         <div class="doc-info-grid">
             <div class="info-col">
-                <span class="info-label">From Branch (Source)</span>
+                <span class="info-label">From (Source)</span>
                 <div class="info-value">
                     <strong>${fromBranch.branchName}</strong><br>
-                    ID: ${fromBranch.branchCode}
+                    ID: ${data.fromBranchCode}
                 </div>
             </div>
             <div class="info-col">
-                <span class="info-label">To Branch (Destination)</span>
+                <span class="info-label">To (Destination)</span>
                 <div class="info-value">
                     <strong>${toBranch.branchName}</strong><br>
-                    ID: ${toBranch.branchCode}
+                    ID: ${data.toBranchCode}
                 </div>
             </div>
             <div class="info-col" style="flex: 0 0 200px;">
                 <table class="meta-table">
-                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleDateString()}</td></tr>
-                    <tr><td class="label">Ref #:</td><td class="val">${data.ref}</td></tr>
+                    <tr><td class="label">Date:</td><td class="val">${new Date(data.date).toLocaleString()}</td></tr>
+                    <tr><td class="label">Ref #:</td><td class="val">${data.ref || data.batchId}</td></tr>
                 </table>
             </div>
         </div>
@@ -900,8 +934,11 @@ const generateIssueDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
     
+    // Handle items
+    const items = data.items || [data];
     let itemsHtml = '';
-    data.items.forEach(item => {
+    
+    items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { unit: 'Units' };
         itemsHtml += `<tr>
             <td>${item.itemCode}</td>
@@ -1074,8 +1111,11 @@ const generateReturnDocument = (data) => {
     const supplier = findByKey(state.suppliers, 'supplierCode', data.supplierCode) || { name: 'Unknown' };
     const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     
+    // Handle items
+    const items = data.items || [data];
     let itemsHtml = '', totalValue = 0;
-    data.items.forEach(item => {
+    
+    items.forEach(item => {
         const itemTotal = item.quantity * item.cost;
         totalValue += itemTotal;
         itemsHtml += `<tr>
@@ -1137,8 +1177,11 @@ const generateRequestIssueDocument = (data) => {
     const fromBranch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     const toSection = findByKey(state.sections, 'sectionCode', data.sectionCode) || { sectionName: 'Unknown' };
     
+    // Handle items
+    const items = data.items || [data];
     let itemsHtml = '';
-    data.items.forEach(item => {
+    
+    items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
         itemsHtml += `<tr>
             <td>${item.itemCode}</td>
@@ -1186,8 +1229,11 @@ const generateRequestIssueDocument = (data) => {
 const generateAdjustmentDocument = (data) => {
     const branch = findByKey(state.branches, 'branchCode', data.fromBranchCode) || { branchName: 'Unknown' };
     
+    // Handle items
+    const items = data.items || [data];
     let itemsHtml = '';
-    data.items.forEach(item => {
+    
+    items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
         const typeDisplay = item.type === 'adjustment_in' ? 'Increase (+)' : 'Decrease (-)';
         itemsHtml += `<tr>
