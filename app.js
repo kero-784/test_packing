@@ -290,23 +290,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                     
                 case 'transaction-history': 
-                    populateOptions(document.getElementById('tx-filter-branch'), state.branches, _t('all_branches'), 'branchCode', 'branchName');
+                    const txBranch = document.getElementById('tx-filter-branch');
+                    populateOptions(txBranch, state.branches, _t('all_branches'), 'branchCode', 'branchName');
+                    
                     const txTypes = ['receive', 'issue', 'transfer_out', 'transfer_in', 'return_out', 'po', 'adjustment_in', 'adjustment_out', 'stock_adjustment'];
                     const txTypeOptions = txTypes.map(t => ({'type': t, 'name': _t(t.replace(/_/g,''))}));
-                    populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
+                    const txType = document.getElementById('tx-filter-type');
+                    populateOptions(txType, txTypeOptions, _t('all_types'), 'type', 'name');
                     
                     state.pagination['table-transaction-history'].page = 1;
                     const txStartDate = document.getElementById('tx-filter-start-date');
                     const txEndDate = document.getElementById('tx-filter-end-date');
-                    const txType = document.getElementById('tx-filter-type');
-                    const txBranch = document.getElementById('tx-filter-branch');
                     const txSearch = document.getElementById('transaction-search');
 
                     renderTransactionHistory({
                         startDate: txStartDate ? txStartDate.value : null,
                         endDate: txEndDate ? txEndDate.value : null,
                         type: txType ? txType.value : null,
-                        branch: branch ? branch.value : null,
+                        // --- FIX: Use 'txBranch' instead of undefined 'branch'
+                        branch: txBranch ? txBranch.value : null, 
                         searchTerm: txSearch ? txSearch.value : null
                     }); 
                     break;
@@ -349,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyUserUIConstraints();
             applyTranslations();
             
-            // --- FIX: Ensure badges are updated whenever view data is refreshed ---
+            // Ensure badges are updated whenever view data is refreshed
             updatePendingRequestsWidget();
             
         } catch (e) {
@@ -708,7 +710,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FORM HANDLERS ---
     function attachFormListeners() {
-        // ... [Rest of form handlers remain the same as previous file] ...
         const addItemForm = document.getElementById('form-add-item');
         if (addItemForm) {
             addItemForm.addEventListener('submit', async e => {
