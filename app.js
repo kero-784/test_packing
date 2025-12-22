@@ -1,14 +1,74 @@
 // --- START OF FILE app.js ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Enhanced Logger
+    // 1. Setup Logger
     window.Logger = {
         info: (msg) => console.log(`%c[INFO] ${msg}`, 'color: blue'),
         error: (msg, err) => console.error(`%c[ERROR] ${msg}`, 'color: red', err || ''),
-        warn: (msg) => console.warn(`[WARN] ${msg}`)
+        warn: (msg) => console.warn(`[WARN] ${msg}`),
+        debug: (msg) => console.log(`[DEBUG] ${msg}`)
     };
 
     Logger.info('DOM fully loaded. Starting initialization...');
+
+    // 2. Define Global Helper: updatePendingRequestsWidget
+    // Defined early so it is available for other functions
+    window.updatePendingRequestsWidget = function() {
+        if (!state.currentUser) return;
+
+        try {
+            // 1. Pending Internal Requests
+            const pendingRequests = (state.itemRequests || []).filter(r => 
+                r.Status === 'Pending' && 
+                (userCan('viewAllBranches') || String(r.ToBranch) === String(state.currentUser.AssignedBranchCode))
+            );
+            const reqCount = pendingRequests.length;
+
+            // 2. Incoming Transfers (In Transit)
+            const incomingTransfers = (state.transactions || []).filter(t => 
+                t.type === 'transfer_out' && 
+                t.Status === 'In Transit' && 
+                (userCan('viewAllBranches') || String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode))
+            );
+            // Deduplicate by batchId for transfers
+            const transferCount = new Set(incomingTransfers.map(t => t.batchId)).size;
+
+            // 3. Update Sidebar Badges
+            updateSidebarBadge('internal-distribution', reqCount);
+            updateSidebarBadge('operations', transferCount);
+
+            // 4. Update Dashboard Widget
+            const widget = document.getElementById('pending-requests-widget');
+            if (widget) {
+                if (reqCount + transferCount > 0) {
+                    document.getElementById('pending-requests-count').textContent = reqCount + transferCount;
+                    widget.style.display = 'flex';
+                } else {
+                    widget.style.display = 'none';
+                }
+            }
+        } catch (e) {
+            console.warn("Widget update failed (safe to ignore during init):", e);
+        }
+    };
+
+    function updateSidebarBadge(viewId, count) {
+        const link = document.querySelector(`a[data-view="${viewId}"]`);
+        if (!link) return;
+        
+        let badge = link.querySelector('.nav-badge');
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'nav-badge';
+                link.appendChild(badge);
+            }
+            badge.textContent = count;
+            badge.style.display = 'inline-block';
+        } else if (badge) {
+            badge.remove();
+        }
+    }
 
     // --- DOM ELEMENT REFERENCES ---
     const loginUsernameInput = document.getElementById('login-username');
@@ -85,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(mainLangSwitcher) mainLangSwitcher.value = lang;
             applyTranslations();
             if(state.currentUser) {
-                // Refresh UI if logged in
                 updateUserBranchDisplay();
                 const currentView = document.querySelector('.nav-item a.active')?.dataset.view || 'dashboard'; 
                 refreshViewData(currentView);
@@ -119,10 +178,9 @@ document.addEventListener('DOMContentLoaded', () => {
         Logger.info('Initializing App UI...');
         setupRoleBasedNav();
         attachEventListeners();
-        attachSubNavListeners(); // Updated Sub-Nav Logic
+        attachSubNavListeners(); 
         setupPaginationListeners();
         
-        // Find default view
         let firstVisibleView = 'dashboard';
         const visibleNavLink = document.querySelector('#main-nav .nav-item:not([style*="display: none"]) a');
         if(visibleNavLink) firstVisibleView = visibleNavLink.dataset.view;
@@ -130,7 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showView(firstVisibleView);
         updateUserBranchDisplay();
         
-        setTimeout(updatePendingRequestsWidget, 500);
+        // Safe update
+        window.updatePendingRequestsWidget();
     };
 
     // --- NAVIGATION LOGIC ---
@@ -157,16 +216,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // If subViewId is passed, force that tab
-            if (subViewId) {
-                const subNavBtn = viewToShow.querySelector(`[data-subview="${subViewId}"]`);
-                if(subNavBtn) subNavBtn.click(); // Reuse the click listener logic
-            } else {
-                // If no subview specified, ensure the first visible tab is active if none are
-                const activeTab = viewToShow.querySelector('.sub-nav-item.active');
-                if(!activeTab) {
-                    const firstTab = viewToShow.querySelector('.sub-nav-item');
-                    if(firstTab) firstTab.click();
+            // Sub-view logic: Only toggle class, don't call data refresh yet
+            if (viewToShow.querySelector('.sub-nav')) {
+                let targetSubViewId = subViewId;
+                if (!targetSubViewId) {
+                    // Check if one is already active to maintain state
+                    const activeTab = viewToShow.querySelector('.sub-nav-item.active');
+                    if(activeTab) {
+                        targetSubViewId = activeTab.dataset.subview;
+                    } else {
+                        // Default to first
+                        const firstVisibleTab = viewToShow.querySelector('.sub-nav-item:not([style*="display: none"])');
+                        if (firstVisibleTab) targetSubViewId = firstVisibleTab.dataset.subview;
+                    }
+                }
+                
+                if (targetSubViewId) {
+                    viewToShow.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active'));
+                    viewToShow.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active'));
+
+                    const subViewBtn = viewToShow.querySelector(`[data-subview="${targetSubViewId}"]`);
+                    if(subViewBtn) subViewBtn.classList.add('active');
+                    
+                    const subViewContainer = viewToShow.querySelector(`#subview-${targetSubViewId}`);
+                    if (subViewContainer) subViewContainer.classList.add('active');
                 }
             }
             
@@ -177,12 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- DATA REFRESH LOGIC ---
     window.refreshViewData = async (viewId) => {
         if (!state.currentUser) return;
         Logger.info(`Refreshing data for view: ${viewId}`);
 
-        updatePendingRequestsWidget();
+        window.updatePendingRequestsWidget();
 
         try {
             switch(viewId) {
@@ -267,7 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const txTypeOptions = txTypes.map(t => ({'type': t, 'name': _t(t.replace(/_/g,''))}));
                     populateOptions(document.getElementById('tx-filter-type'), txTypeOptions, _t('all_types'), 'type', 'name');
                     
-                    // Render initial history
                     const txBranch = document.getElementById('tx-filter-branch');
                     const txSearch = document.getElementById('transaction-search');
                     renderTransactionHistory({
@@ -284,7 +355,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const companyTab = document.querySelector('[data-subview="company"]');
                     if(companyTab) {
-                        // Populate Company Settings form if accessible
                         if (userCan('manageUsers')) {
                             const form = document.getElementById('form-company-settings');
                             if(form && state.companySettings) {
@@ -299,7 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
 
                 case 'user-management':
-                    // Always try to fetch fresh data for user management
                     try {
                         const result = await postData('getAllUsersAndRoles', {}, null, 'Loading...');
                         if (result) { 
@@ -309,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (e) {
                         Logger.warn("Using cached user data");
                     }
-                    // Force render Company Info Preview here
+                    // Explicitly call the renderer here
                     renderCompanyInfoPreview(); 
                     renderUserManagementUI();
                     break;
@@ -345,11 +414,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(key !== 'user') state[key] = data[key] || state[key]; 
             }); 
             
-            // Explicitly set Company Settings
             if(data.companySettings) state.companySettings = data.companySettings;
 
             updateUserBranchDisplay(); 
-            updatePendingRequestsWidget(); 
+            window.updatePendingRequestsWidget(); 
             
             const currentView = document.querySelector('.nav-item a.active')?.dataset.view || 'dashboard'; 
             await refreshViewData(currentView); 
@@ -362,57 +430,44 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     };
 
-    // --- FIXED SUB-NAV LISTENER ---
+    // --- FIXED SUB-NAV LISTENER (Pure CSS Toggle) ---
     function attachSubNavListeners() {
         const navContainer = document.querySelector('.main-content');
-        const modalContainer = document.body; // To catch clicks inside modals
-
+        
         const handleSubNavClick = (e) => {
             const btn = e.target.closest('.sub-nav-item');
             if (!btn) return;
 
             e.preventDefault();
-            e.stopPropagation(); // Stop bubbling
+            e.stopPropagation();
 
-            // Find parent context (View or Modal)
             const parentContext = btn.closest('.view') || btn.closest('.modal-body');
             if (!parentContext) return;
 
             const subviewId = btn.dataset.subview;
             if(!subviewId) return;
 
-            // 1. Deactivate all buttons in this context
+            // 1. UI Toggle Only
             parentContext.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active'));
-            // 2. Hide all sub-views in this context
             parentContext.querySelectorAll('.sub-view').forEach(v => v.classList.remove('active'));
 
-            // 3. Activate clicked button
             btn.classList.add('active');
             
-            // 4. Show target sub-view
-            // We search by ID. Note: IDs must be unique in the whole document.
-            // If they aren't, this logic might find the wrong one. 
-            // Assuming IDs like 'subview-receive' are unique.
             const targetView = parentContext.querySelector(`#subview-${subviewId}`) || document.getElementById(`subview-${subviewId}`);
+            if (targetView) targetView.classList.add('active');
             
-            if (targetView) {
-                targetView.classList.add('active');
-            } else {
-                Logger.error(`Sub-view content #subview-${subviewId} not found.`);
-            }
+            // 2. We do NOT call refreshViewData here automatically to prevent freezing/loops.
+            // Data should be loaded by the main View load or explicit actions.
         };
 
         if(navContainer) navContainer.addEventListener('click', handleSubNavClick);
-        // Also attach to document body for Modals that are direct children of body
         document.body.addEventListener('click', (e) => {
-            // Only handle if inside a modal overlay to avoid double triggering
             if(e.target.closest('.modal-overlay')) {
                 handleSubNavClick(e);
             }
         });
     }
 
-    // --- EVENT LISTENER ATTACHMENT ---
     function attachEventListeners() {
         if(btnLogout) btnLogout.addEventListener('click', (e) => { e.preventDefault(); location.reload(); });
         if(globalRefreshBtn) globalRefreshBtn.addEventListener('click', reloadDataAndRefreshUI);
@@ -685,6 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!userCan('opReceiveWithoutPO') && !poId) { showToast(_t('select_po_first_toast'), 'error'); return; } 
                     if (!supplierCode || !branchCode || !invoiceNumber || state.currentReceiveList.length === 0) { showToast(_t('fill_required_fields_toast'), 'error'); return; } 
                     
+                    // FIX: Enforce parseFloat on items
                     const payload = { 
                         type: 'receive', 
                         batchId: `GRN-${Date.now()}`, 
@@ -867,7 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     await handleTransactionSubmit(payload, btn);
                     state.currentAdjustmentList = []; renderAdjustmentListTable(); document.getElementById('form-adjustment-details').reset();
                 } catch (err) {
-                    setButtonLoading(false, btn);
+                    console.log("Adjustment cancelled", err);
                 }
             });
         }
@@ -1107,6 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- MODAL FUNCTIONS RE-IMPLEMENTATION ---
     function closeModal() { document.querySelectorAll('.modal-overlay').forEach(modal => modal.classList.remove('active')); modalSearchInput.value = ''; modalContext = null; }
 
     function openItemSelectorModal(event) {
@@ -1137,6 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
             itemDiv.className = 'modal-item';
             itemDiv.innerHTML = `<input type="checkbox" id="modal-item-${item.code}" data-code="${item.code}" ${isChecked ? 'checked' : ''}><label for="modal-item-${item.code}"><strong>${item.name}</strong><br><small style="color:var(--text-light-color)">${_t('table_h_code')}: ${item.code}</small></label>`;
             itemDiv.addEventListener('click', e => {
+                 // Toggle checkbox if clicked anywhere on the item row
                  if (e.target.type !== 'checkbox') {
                      const cb = itemDiv.querySelector('input[type="checkbox"]');
                      cb.checked = !cb.checked;
