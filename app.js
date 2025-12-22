@@ -145,17 +145,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewToShow.querySelector('.sub-nav')) {
                 let targetSubViewId = subViewId;
                 if (!targetSubViewId) {
-                    const firstVisibleTab = viewToShow.querySelector('.sub-nav-item:not([style*="display: none"])');
-                    if (firstVisibleTab) targetSubViewId = firstVisibleTab.dataset.subview;
+                    // Try to find currently active button first
+                    const activeSubBtn = viewToShow.querySelector('.sub-nav-item.active');
+                    if (activeSubBtn) {
+                        targetSubViewId = activeSubBtn.dataset.subview;
+                    } else {
+                        // Default to first visible
+                        const firstVisibleTab = viewToShow.querySelector('.sub-nav-item:not([style*="display: none"])');
+                        if (firstVisibleTab) targetSubViewId = firstVisibleTab.dataset.subview;
+                    }
                 }
                 
                 if (targetSubViewId) {
+                    // Deactivate all
                     viewToShow.querySelectorAll('.sub-nav-item').forEach(btn => btn.classList.remove('active'));
                     viewToShow.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active'));
 
+                    // Activate button
                     const subViewBtn = viewToShow.querySelector(`[data-subview="${targetSubViewId}"]`);
                     if(subViewBtn) subViewBtn.classList.add('active');
                     
+                    // Activate Content
                     const subViewContainer = viewToShow.querySelector(`#subview-${targetSubViewId}`);
                     if (subViewContainer) subViewContainer.classList.add('active');
                 }
@@ -338,6 +348,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             applyUserUIConstraints();
             applyTranslations();
+            
+            // --- FIX: Ensure badges are updated whenever view data is refreshed ---
+            updatePendingRequestsWidget();
+            
         } catch (e) {
             Logger.error(`Error refreshing view data for ${viewId}:`, e);
         }
@@ -356,11 +370,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.status === 'error') throw new Error(data.message); 
             
             Object.keys(data).forEach(key => { 
-                if(key !== 'user') state[key] = data[key] || state[key]; 
+                if (key === 'user') return;
+                if (key === 'companySettings') {
+                    state[key] = data[key] || {};
+                } else {
+                    state[key] = data[key] || state[key]; 
+                }
             }); 
             
-            if(data.companySettings) state.companySettings = data.companySettings;
-
             updateUserBranchDisplay(); 
             updatePendingRequestsWidget(); 
             
@@ -650,43 +667,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SUB-NAVIGATION (TABS) LISTENER (FIXED - GLOBAL DELEGATION) ---
-    function attachSubNavListeners() { 
+    // --- FIX: Sub-tab Logic Revised ---
+    function attachSubNavListeners() {
         document.body.addEventListener('click', e => {
+            // Find the closest button if the click hit an icon/span inside
             const btn = e.target.closest('.sub-nav-item');
             if (!btn) return;
-            
+
             // Ignore if inside a modal (history modal handles its own logic)
             if (btn.closest('#history-modal')) return;
 
             e.preventDefault();
 
-            const subviewId = btn.dataset.subview; 
-            const parentView = btn.closest('.view'); 
+            const subviewId = btn.dataset.subview;
+            const parentView = btn.closest('.view');
             
             if (!parentView) return;
             
             Logger.info(`Sub-tab clicked: ${subviewId} in ${parentView.id}`);
 
-            // Update Buttons
-            parentView.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active')); 
-            btn.classList.add('active'); 
+            // 1. Update Buttons State
+            parentView.querySelectorAll('.sub-nav-item').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
             
-            // Update Views
-            parentView.querySelectorAll('.sub-view').forEach(view => view.classList.remove('active')); 
-            const subViewToShow = parentView.querySelector(`#subview-${subviewId}`); 
+            // 2. Update Content Views State
+            parentView.querySelectorAll('.sub-view').forEach(view => {
+                view.classList.remove('active');
+            });
             
+            const subViewToShow = parentView.querySelector(`#subview-${subviewId}`);
             if (subViewToShow) {
                 subViewToShow.classList.add('active');
-                
-                // Explicitly refresh data when tab changes to ensure tables render
-                refreshViewData(parentView.id.replace('view-','')); 
+                // Ensure data renders for the new tab
+                refreshViewData(parentView.id.replace('view-', ''));
+            } else {
+                Logger.warn(`Sub-view #subview-${subviewId} not found in ${parentView.id}`);
             }
         });
     }
 
     // --- FORM HANDLERS ---
     function attachFormListeners() {
+        // ... [Rest of form handlers remain the same as previous file] ...
         const addItemForm = document.getElementById('form-add-item');
         if (addItemForm) {
             addItemForm.addEventListener('submit', async e => {
@@ -858,6 +880,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- CLICK HANDLERS ---
+    function handleGlobalClicks(e) {
+         // This is a placeholder if you need global click handling not covered below
+    }
+
     function handleMainContentClicks(e) {
         const btn = e.target.closest('button');
         if (!btn) return;
