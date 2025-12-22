@@ -1,5 +1,3 @@
-
-
 // ui-renderers.js
 
 // --- HELPER FUNCTIONS ---
@@ -703,8 +701,10 @@ function renderUnifiedConsumptionReport() {
 
 // Helper to build the common header structure
 const getDocumentHeader = (title, id, status = '') => {
-    // Ensure object exists
-    const info = state.companySettings || {}; 
+    // Ensure object exists and prevent crash if companySettings is array or missing
+    const info = (state.companySettings && !Array.isArray(state.companySettings)) 
+                 ? state.companySettings 
+                 : {}; 
     
     const companyName = info.CompanyName || 'PACKING STOCK';
     const address = info.Address || '';
@@ -1182,4 +1182,3 @@ const generateAdjustmentDocument = (data) => {
     </div>`;
     printContent(content);
 };
-
