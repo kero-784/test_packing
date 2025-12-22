@@ -1,5 +1,5 @@
 // config.js
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl6OQvlEMAZdzpL-Xuq9NAWsSFBuZTAXgz4O51GM62HImSQ1bDSaaXEehqiF2phgmx/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwjJwh-HrwQHPGi1-1LZPtBxukGLaYzkm5K-RVXtkBlV19vzBY2BJ2Xc6I1s1gXqjV5/exec';
 
 const Logger = {
     info: (message, ...args) => console.log(`%c[INFO] ${message}`, 'color: #2196F3; font-weight: bold;', ...args),
