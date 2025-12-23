@@ -44,7 +44,6 @@ function updateTableHTML(tableId, html, paginationHtml = '') {
     if(tbody) tbody.innerHTML = html;
 
     // Handle Pagination Container placement
-    // We look for a container specifically meant for pagination controls, often placed after the table wrapper
     const wrapper = tableElement.parentElement;
     let pagContainer = wrapper.nextElementSibling;
     
@@ -245,7 +244,26 @@ function renderStockAdjustmentReport() {
     const table = document.getElementById('table-stock-adj-report');
     if(!table) return;
     
-    const adjData = state.transactions.filter(t => t.type === 'stock_adjustment' || t.type === 'adjustment_in' || t.type === 'adjustment_out').reverse();
+    // Get Filter Values
+    const branchFilter = document.getElementById('stock-adj-filter-branch')?.value;
+    const startFilter = document.getElementById('stock-adj-filter-start')?.value;
+    const endFilter = document.getElementById('stock-adj-filter-end')?.value;
+
+    let adjData = state.transactions.filter(t => t.type === 'stock_adjustment' || t.type === 'adjustment_in' || t.type === 'adjustment_out').reverse();
+
+    // Apply Filters
+    if (branchFilter) {
+        adjData = adjData.filter(t => String(t.fromBranchCode) === String(branchFilter));
+    }
+    if (startFilter) {
+        adjData = adjData.filter(t => new Date(t.date) >= new Date(startFilter));
+    }
+    if (endFilter) {
+        // Set end date to end of day
+        const endDate = new Date(endFilter);
+        endDate.setHours(23, 59, 59, 999);
+        adjData = adjData.filter(t => new Date(t.date) <= endDate);
+    }
     
     const settings = state.pagination['table-stock-adj-report'];
     const totalItems = adjData.length;
@@ -253,13 +271,41 @@ function renderStockAdjustmentReport() {
     const paginatedData = adjData.slice(start, start + settings.pageSize);
 
     let html = '';
-    paginatedData.forEach(t => {
-        const item = findByKey(state.items, 'code', t.itemCode);
-        const branch = findByKey(state.branches, 'branchCode', t.fromBranchCode);
-        const typeDisplay = t.type === 'adjustment_in' ? 'In (+)' : (t.type === 'adjustment_out' ? 'Out (-)' : 'Adj');
-        html += `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.ref || t.batchId}</td><td>${branch?.branchName || t.fromBranchCode}</td><td>${item?.name || t.itemCode}</td><td>${parseFloat(t.quantity).toFixed(2)}</td><td>${typeDisplay}</td><td>${t.notes || ''}</td><td><button class="secondary small btn-view-tx" data-batch-id="${t.batchId}" data-type="adjustment">${_t('view_print')}</button></td></tr>`;
-    });
+    if (paginatedData.length === 0) {
+        html = '<tr><td colspan="8" style="text-align:center;">No records found matching filters.</td></tr>';
+    } else {
+        paginatedData.forEach(t => {
+            const item = findByKey(state.items, 'code', t.itemCode);
+            const branch = findByKey(state.branches, 'branchCode', t.fromBranchCode);
+            const typeDisplay = t.type === 'adjustment_in' ? 'Increase (+)' : (t.type === 'adjustment_out' ? 'Decrease (-)' : 'Adj');
+            html += `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.ref || t.batchId}</td><td>${branch?.branchName || t.fromBranchCode}</td><td>${item?.name || t.itemCode}</td><td>${parseFloat(t.quantity).toFixed(2)}</td><td>${typeDisplay}</td><td>${t.notes || ''}</td><td><button class="secondary small btn-view-tx" data-batch-id="${t.batchId}" data-type="adjustment">${_t('view_print')}</button></td></tr>`;
+        });
+    }
     updateTableHTML('table-stock-adj-report', html, renderPaginationControls('table-stock-adj-report', totalItems));
+}
+
+// ** ADDED: Supplier Adjustment Report Renderer **
+function renderSupplierAdjustmentReport() {
+    const table = document.getElementById('table-supplier-adj-report');
+    if(!table) return;
+    
+    const adjData = state.payments.filter(p => p.method === 'OPENING BALANCE').reverse();
+    
+    const settings = state.pagination['table-supplier-adj-report'];
+    const totalItems = adjData.length;
+    const start = (settings.page - 1) * settings.pageSize;
+    const paginatedData = adjData.slice(start, start + settings.pageSize);
+
+    let html = '';
+    if (paginatedData.length === 0) {
+        html = '<tr><td colspan="6" style="text-align:center;">No supplier adjustments found.</td></tr>';
+    } else {
+        paginatedData.forEach(p => {
+            const supplier = findByKey(state.suppliers, 'supplierCode', p.supplierCode);
+            html += `<tr><td>${new Date(p.date).toLocaleDateString()}</td><td>${p.invoiceNumber}</td><td>${supplier?.name || p.supplierCode}</td><td>${parseFloat(p.amount).toFixed(2)}</td><td>${p.method}</td><td><button class="secondary small btn-print-supplier-adj" data-id="${p.paymentId || p.ref}">Print</button></td></tr>`;
+        });
+    }
+    updateTableHTML('table-supplier-adj-report', html, renderPaginationControls('table-supplier-adj-report', totalItems));
 }
 
 function renderPendingTransfers() {
@@ -303,7 +349,6 @@ function renderPendingTransfers() {
         }
     });
     
-    // Filter Visibility
     const visibleTransfers = Object.values(groupedTransfers).filter(t => {
         if (userCan('viewAllBranches')) return true;
         return String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode);
@@ -810,7 +855,9 @@ const generateTransferDocument = (data) => {
     
     items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
-        itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${fullItem.unit || ''}</td></tr>`;
+        const itemName = item.itemName || fullItem.name;
+        
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${itemName}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${fullItem.unit || ''}</td></tr>`;
     });
 
     const content = `
