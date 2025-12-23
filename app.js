@@ -159,7 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Sub-view logic
             if (viewToShow.querySelector('.sub-nav')) {
                 let targetSubViewId = subViewId;
                 if (!targetSubViewId) {
@@ -237,6 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('fin-adj-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     
+                    // ** FIX: Populate Filter Dropdown for Report **
+                    populateOptions(document.getElementById('stock-adj-filter-branch'), state.branches, _t('all_branches'), 'branchCode', 'branchName');
+
                     if(!userCan('opStockAdjustment')) {
                         const stockAdjTab = document.querySelector('[data-subview="stock-adj"]');
                         if(stockAdjTab) stockAdjTab.style.display = 'none';
@@ -279,7 +281,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'stock-levels':
                     const titleEl = document.getElementById('stock-levels-title');
                     if(titleEl) titleEl.textContent = userCan('viewAllBranches') ? _t('stock_by_item_all_branches') : _t('stock_by_item_your_branch');
+                    
+                    // ** FIX: Show Select Branches Button if Admin **
+                    const btnSelectBranches = document.getElementById('btn-stock-select-branches');
+                    if (btnSelectBranches) {
+                        btnSelectBranches.style.display = userCan('viewAllBranches') ? 'inline-flex' : 'none';
+                    }
+                    
                     renderItemCentricStockView();
+                    const itemInq = document.getElementById('item-inquiry-search');
+                    if(document.getElementById('item-inquiry-results')) document.getElementById('item-inquiry-results').innerHTML = '';
                     break;
                     
                 case 'transaction-history': 
@@ -327,7 +338,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (e) {
                         Logger.warn("Using cached user data");
                     }
-                    // Explicitly call the renderer here
                     if(typeof window.renderUserManagementUI === 'function') {
                         window.renderUserManagementUI();
                     }
@@ -563,6 +573,17 @@ document.addEventListener('DOMContentLoaded', () => {
                      openInvoiceSelectorModal();
                  } else {
                      showToast("Please select a supplier first.", "error");
+                 }
+            });
+        }
+        
+        // ** FIX: Listener for Stock Adjustment Report Refresh **
+        const btnRefreshStockAdj = document.getElementById('btn-refresh-stock-adj-report');
+        if (btnRefreshStockAdj) {
+            btnRefreshStockAdj.addEventListener('click', () => {
+                 if(typeof window.renderStockAdjustmentReport === 'function') {
+                     window.renderStockAdjustmentReport();
+                     showToast('Report updated', 'success');
                  }
             });
         }
@@ -1096,7 +1117,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.dataset.context) openItemSelectorModal(e);
         if (btn.dataset.selectionType) openSelectionModal(btn.dataset.selectionType);
         
-        // ** FIXED: Added call to openInvoiceSelectorModal **
         if (btn.id === 'btn-select-invoices') {
             if(document.getElementById('payment-supplier-select').value) {
                 openInvoiceSelectorModal();
