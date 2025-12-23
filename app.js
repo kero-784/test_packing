@@ -254,7 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'financials':
                     populateOptions(document.getElementById('payment-supplier-select'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
-                    renderPaymentList();
+                    
+                    // Trigger initial empty list (or logic to clear)
+                    renderPaymentList(); 
                     break;
                     
                 case 'purchasing':
@@ -529,6 +531,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnConfirmInvoice = document.getElementById('btn-confirm-invoice-selection');
         if (btnConfirmInvoice) btnConfirmInvoice.addEventListener('click', confirmModalSelection);
         
+        // ** FIXED: Added Listener for Payment Supplier Select **
+        const paymentSupplierSelect = document.getElementById('payment-supplier-select');
+        if (paymentSupplierSelect) {
+            paymentSupplierSelect.addEventListener('change', () => {
+                // Clear existing invoices selection when changing supplier
+                state.invoiceModalSelections.clear();
+                const btnInv = document.getElementById('btn-select-invoices');
+                if(btnInv) btnInv.disabled = false;
+                // Re-render empty first to clear view
+                renderPaymentList();
+            });
+        }
+        
+        const btnSelectInvoices = document.getElementById('btn-select-invoices');
+        if(btnSelectInvoices) {
+            btnSelectInvoices.addEventListener('click', () => {
+                 if(document.getElementById('payment-supplier-select').value) {
+                     openInvoiceSelectorModal();
+                 } else {
+                     showToast("Please select a supplier first", "error");
+                 }
+            });
+        }
+
         const invSelector = document.getElementById('invoice-selector-modal');
         if (invSelector) invSelector.addEventListener('change', handleInvoiceModalCheckboxChange);
         
@@ -557,7 +583,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // ** FIXED: Added missing event listeners for Transfer Confirmation/Rejection **
         const btnConfirmReceive = document.getElementById('btn-confirm-receive-transfer');
         if (btnConfirmReceive) {
             btnConfirmReceive.addEventListener('click', async (e) => {
@@ -1054,7 +1079,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (btn.dataset.context) openItemSelectorModal(e);
         if (btn.dataset.selectionType) openSelectionModal(btn.dataset.selectionType);
-        if (btn.id === 'btn-select-invoices') openInvoiceSelectorModal();
+        
+        // ** FIXED: Added call to openInvoiceSelectorModal **
+        if (btn.id === 'btn-select-invoices') {
+            if(document.getElementById('payment-supplier-select').value) {
+                openInvoiceSelectorModal();
+            } else {
+                showToast("Please select a supplier first.", "error");
+            }
+        }
         
         if (btn.classList.contains('btn-edit')) openEditModal(btn.dataset.type, btn.dataset.id);
         if (btn.classList.contains('btn-history')) openHistoryModal(btn.dataset.id);
@@ -1110,11 +1143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(p) generatePaymentVoucher({payments:[p], ...p});
         }
         
-        // ** FIXED: Properly call openViewTransferModal **
-        if (btn.classList.contains('btn-receive-transfer')) {
-            openViewTransferModal(btn.dataset.batchId);
-        }
-
+        if (btn.classList.contains('btn-receive-transfer')) openViewTransferModal(btn.dataset.batchId);
         if (btn.classList.contains('btn-edit-transfer')) openPOEditModal(btn.dataset.batchId); 
         if (btn.classList.contains('btn-cancel-transfer')) { const batchId = btn.dataset.batchId; if (confirm(`Cancel transfer ${batchId}?`)) { postData('cancelTransfer', { batchId }, btn, 'Cancelling...').then(res => res && reloadDataAndRefreshUI()); } }
         
@@ -1294,6 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => {
             itemDiv.className = 'modal-item';
             itemDiv.innerHTML = `<input type="checkbox" id="modal-item-${item.code}" data-code="${item.code}" ${isChecked ? 'checked' : ''}><label for="modal-item-${item.code}"><strong>${item.name}</strong><br><small style="color:var(--text-light-color)">${_t('table_h_code')}: ${item.code}</small></label>`;
             itemDiv.addEventListener('click', e => {
+                 // Toggle checkbox if clicked anywhere on the item row
                  if (e.target.type !== 'checkbox') {
                      const cb = itemDiv.querySelector('input[type="checkbox"]');
                      cb.checked = !cb.checked;
@@ -1305,6 +1335,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function confirmModalSelection() {
+        // ** FIXED: Updated logic to handle Stock Level filters **
+        if (state.currentSelectionModal.type === 'stock-level-items') {
+            state.reportSelectedItems = new Set(state.currentSelectionModal.tempSelections);
+            const selectedItems = Array.from(state.reportSelectedItems).map(id => findByKey(state.items, 'code', id));
+            renderItemCentricStockView(selectedItems.length > 0 ? selectedItems : state.items);
+            closeModal();
+            return;
+        } else if (state.currentSelectionModal.type === 'stock-level-branches') {
+             const selectedBranches = Array.from(state.currentSelectionModal.tempSelections).map(id => findByKey(state.branches, 'branchCode', id));
+             renderItemCentricStockView(state.items, selectedBranches.length > 0 ? selectedBranches : null);
+             closeModal();
+             return;
+        }
+
         const createNewList = (currentList) => {
             const newList = [];
             state.modalSelections.forEach(code => {
