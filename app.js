@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Sub-view logic
             if (viewToShow.querySelector('.sub-nav')) {
                 let targetSubViewId = subViewId;
                 if (!targetSubViewId) {
@@ -236,6 +237,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateOptions(document.getElementById('adjustment-branch'), state.branches, _t('select_a_branch'), 'branchCode', 'branchName');
                     populateOptions(document.getElementById('fin-adj-supplier'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     
+                    if(!userCan('opStockAdjustment')) {
+                        const stockAdjTab = document.querySelector('[data-subview="stock-adj"]');
+                        if(stockAdjTab) stockAdjTab.style.display = 'none';
+                    }
+                    if(!userCan('opFinancialAdjustment')) {
+                        const suppAdjTab = document.querySelector('[data-subview="supplier-adj"]');
+                        if(suppAdjTab) suppAdjTab.style.display = 'none';
+                    }
+
                     renderAdjustmentListTable();
                     renderStockAdjustmentReport();
                     renderSupplierAdjustmentReport();
@@ -317,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (e) {
                         Logger.warn("Using cached user data");
                     }
+                    // Explicitly call the renderer here
                     if(typeof window.renderUserManagementUI === 'function') {
                         window.renderUserManagementUI();
                     }
@@ -373,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     };
 
-    // --- FIXED SUB-NAV LISTENER ---
+    // --- SUB-NAV LISTENER ---
     function attachSubNavListeners() {
         const handleSubNavClick = (e) => {
             const btn = e.target.closest('.sub-nav-item');
@@ -528,9 +539,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnConfirmModal) btnConfirmModal.addEventListener('click', confirmModalSelection);
         
         const btnConfirmInvoice = document.getElementById('btn-confirm-invoice-selection');
-        if (btnConfirmInvoice) btnConfirmInvoice.addEventListener('click', confirmModalSelection);
+        if (btnConfirmInvoice) btnConfirmInvoice.addEventListener('click', () => {
+             // Invoice confirm specific logic
+             renderPaymentList();
+             closeModal();
+        });
         
-        // ** FIXED: Added Listener for Payment Supplier Select **
+        // Listener for Payment Supplier Select
         const paymentSupplierSelect = document.getElementById('payment-supplier-select');
         if (paymentSupplierSelect) {
             paymentSupplierSelect.addEventListener('change', () => {
@@ -552,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // ** FIXED: Added Listener for Report Selection Confirmation **
+        // Listener for Report Selection Confirmation (Stock Levels)
         const btnConfirmReportSel = document.getElementById('btn-confirm-report-selection');
         if(btnConfirmReportSel) {
             btnConfirmReportSel.addEventListener('click', confirmReportSelection);
@@ -586,7 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // ** FIXED: Transfer Confirmation Listeners **
+        // ** Transfer Confirmation Listeners **
         const btnConfirmReceive = document.getElementById('btn-confirm-receive-transfer');
         if (btnConfirmReceive) {
             btnConfirmReceive.addEventListener('click', async (e) => {
@@ -1164,7 +1179,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.id === 'btn-generate-supplier-statement') renderSupplierStatement(document.getElementById('supplier-statement-select').value, document.getElementById('statement-start-date').value, document.getElementById('statement-end-date').value);
         if (btn.id === 'btn-generate-consumption-report') renderUnifiedConsumptionReport();
         
-        // Print Button Handlers
         if (btn.id === 'btn-print-pending-requests') window.printReport('subview-pending-approval');
     }
 
@@ -1576,15 +1590,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openViewTransferModal(batchId) {
         const txs = state.transactions.filter(t => t.batchId === batchId);
-        
+        if (!txs.length) return;
+
         let html = `
         <div class="table-responsive">
-            <table>
+            <table class="doc-table">
                 <thead>
                     <tr>
-                        <th style="width: 25%;">Code</th>
-                        <th style="width: 50%;">Item Name</th>
-                        <th style="width: 25%;">Qty</th>
+                        <th style="width: 20%;">Code</th>
+                        <th style="width: 55%;">Item Name</th>
+                        <th style="width: 25%; text-align: center;">Quantity</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1597,7 +1612,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <tr>
                 <td style="font-weight: 600; color: var(--primary-color);">${t.itemCode}</td>
                 <td>${itemName}</td>
-                <td style="font-weight: 700; font-size: 15px;">${parseFloat(t.quantity).toFixed(2)}</td>
+                <td style="font-weight: 700; font-size: 15px; text-align: center;">${parseFloat(t.quantity).toFixed(2)}</td>
             </tr>`;
         });
 
@@ -1606,21 +1621,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Inject into modal body
         document.getElementById('view-transfer-modal-body').innerHTML = html;
         
-        // Update Title with Reference if available
+        // Update Title
         const ref = txs[0].ref || batchId;
         document.getElementById('view-transfer-modal-title').textContent = `${_t('confirm_receipt')}: ${ref}`;
 
-        // Bind Buttons
+        // Bind Data to Buttons
         const confirmBtn = document.getElementById('btn-confirm-receive-transfer');
         const rejectBtn = document.getElementById('btn-reject-transfer');
         
-        if (confirmBtn) {
+        if(confirmBtn) {
             confirmBtn.dataset.batchId = batchId;
             confirmBtn.dataset.fromBranch = txs[0].fromBranchCode;
             confirmBtn.dataset.toBranch = txs[0].toBranchCode;
             confirmBtn.dataset.ref = ref;
         }
-        if (rejectBtn) {
+        
+        if(rejectBtn) {
             rejectBtn.dataset.batchId = batchId;
         }
         
@@ -1678,35 +1694,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function confirmReportSelection() {
-        const type = state.currentSelectionModal.type;
-        const set = state.currentSelectionModal.tempSelections;
-        
-        if(type === 'branches') {
-            state.reportSelectedBranches = new Set(set);
-            document.getElementById('consumption-branch-count').textContent = `${set.size} selected`;
-        } else if(type === 'sections') {
-            state.reportSelectedSections = new Set(set);
-            document.getElementById('consumption-section-count').textContent = `${set.size} selected`;
-        } else if(type === 'items') {
-            state.reportSelectedItems = new Set(set);
-            document.getElementById('consumption-item-count').textContent = `${set.size} selected`;
-        } else if(type === 'stock-level-items') {
-             const selectedItems = Array.from(set).map(id => findByKey(state.items, 'code', id));
-             renderItemCentricStockView(selectedItems.length > 0 ? selectedItems : state.items);
-        } else if(type === 'stock-level-branches') {
-             const selectedBranches = Array.from(set).map(id => findByKey(state.branches, 'branchCode', id));
-             renderItemCentricStockView(state.items, selectedBranches);
-        } else if (type === 'item-inquiry') {
-             if(set.size > 0) {
-                 const itemId = Array.from(set)[0];
-                 const item = findByKey(state.items, 'code', itemId);
-                 if(item) {
-                     document.getElementById('btn-open-item-inquiry').querySelector('span').textContent = item.name;
-                     renderItemInquiry(item.code.toLowerCase());
-                 }
-             }
+        // ** FIXED: Updated logic to handle Stock Level filters **
+        if (state.currentSelectionModal.type === 'stock-level-items') {
+            state.reportSelectedItems = new Set(state.currentSelectionModal.tempSelections);
+            const selectedItems = Array.from(state.reportSelectedItems).map(id => findByKey(state.items, 'code', id));
+            renderItemCentricStockView(selectedItems.length > 0 ? selectedItems : state.items);
+            closeModal();
+            return;
+        } else if (state.currentSelectionModal.type === 'stock-level-branches') {
+             const selectedBranches = Array.from(state.currentSelectionModal.tempSelections).map(id => findByKey(state.branches, 'branchCode', id));
+             renderItemCentricStockView(state.items, selectedBranches.length > 0 ? selectedBranches : null);
+             closeModal();
+             return;
         }
-        
+
+        const createNewList = (currentList) => {
+            const newList = [];
+            state.modalSelections.forEach(code => {
+                const item = findByKey(state.items, 'code', code);
+                const existing = (currentList || []).find(i => i.itemCode === code);
+                newList.push(existing || { itemCode: item.code, itemName: item.name, quantity: '', cost: item.cost });
+            });
+            return newList;
+        };
+        switch (modalContext) {
+            case 'receive': state.currentReceiveList = createNewList(state.currentReceiveList); renderReceiveListTable(); break;
+            case 'transfer': state.currentTransferList = createNewList(state.currentTransferList); renderTransferListTable(); break;
+            case 'issue': state.currentIssueList = createNewList(state.currentIssueList); renderIssueListTable(); break;
+            case 'po': state.currentPOList = createNewList(state.currentPOList); renderPOListTable(); break;
+            case 'return': state.currentReturnList = createNewList(state.currentReturnList); renderReturnListTable(); break;
+            case 'request': state.currentRequestList = createNewList(state.currentRequestList); renderRequestListTable(); break;
+            case 'edit-po': state.currentEditingPOList = createNewList(state.currentEditingPOList); renderPOEditListTable(); break;
+            case 'adjustment': state.currentAdjustmentList = createNewList(state.currentAdjustmentList); renderAdjustmentListTable(); break;
+        }
         closeModal();
     }
 
