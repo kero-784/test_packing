@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     installBtn.style.display = 'none';
                     deferredPrompt.prompt();
                     deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') Logger.info('User accepted A2HS');
                         deferredPrompt = null;
                     });
                 });
@@ -254,9 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'financials':
                     populateOptions(document.getElementById('payment-supplier-select'), state.suppliers, _t('select_supplier'), 'supplierCode', 'name');
                     populateOptions(document.getElementById('supplier-statement-select'), state.suppliers, _t('select_a_supplier'), 'supplierCode', 'name');
-                    
-                    // Trigger initial empty list (or logic to clear)
-                    renderPaymentList(); 
+                    renderPaymentList();
                     break;
                     
                 case 'purchasing':
@@ -374,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     };
 
-    // --- SUB-NAV LISTENER ---
+    // --- FIXED SUB-NAV LISTENER ---
     function attachSubNavListeners() {
         const handleSubNavClick = (e) => {
             const btn = e.target.closest('.sub-nav-item');
@@ -535,11 +534,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const paymentSupplierSelect = document.getElementById('payment-supplier-select');
         if (paymentSupplierSelect) {
             paymentSupplierSelect.addEventListener('change', () => {
-                // Clear existing invoices selection when changing supplier
                 state.invoiceModalSelections.clear();
                 const btnInv = document.getElementById('btn-select-invoices');
                 if(btnInv) btnInv.disabled = false;
-                // Re-render empty first to clear view
                 renderPaymentList();
             });
         }
@@ -550,9 +547,15 @@ document.addEventListener('DOMContentLoaded', () => {
                  if(document.getElementById('payment-supplier-select').value) {
                      openInvoiceSelectorModal();
                  } else {
-                     showToast("Please select a supplier first", "error");
+                     showToast("Please select a supplier first.", "error");
                  }
             });
+        }
+
+        // ** FIXED: Added Listener for Report Selection Confirmation **
+        const btnConfirmReportSel = document.getElementById('btn-confirm-report-selection');
+        if(btnConfirmReportSel) {
+            btnConfirmReportSel.addEventListener('click', confirmReportSelection);
         }
 
         const invSelector = document.getElementById('invoice-selector-modal');
@@ -583,6 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        // ** FIXED: Transfer Confirmation Listeners **
         const btnConfirmReceive = document.getElementById('btn-confirm-receive-transfer');
         if (btnConfirmReceive) {
             btnConfirmReceive.addEventListener('click', async (e) => {
@@ -637,9 +641,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const btnConfirmContext = document.getElementById('btn-confirm-context');
         if(btnConfirmContext) btnConfirmContext.addEventListener('click', confirmContextSelection);
-        
-        const btnConfirmReportSel = document.getElementById('btn-confirm-report-selection');
-        if(btnConfirmReportSel) btnConfirmReportSel.addEventListener('click', confirmReportSelection);
         
         const selModalSearch = document.getElementById('selection-modal-search');
         if(selModalSearch) selModalSearch.addEventListener('input', e => renderSelectionModalContent(e.target.value));
@@ -1163,6 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.id === 'btn-generate-supplier-statement') renderSupplierStatement(document.getElementById('supplier-statement-select').value, document.getElementById('statement-start-date').value, document.getElementById('statement-end-date').value);
         if (btn.id === 'btn-generate-consumption-report') renderUnifiedConsumptionReport();
         
+        // Print Button Handlers
         if (btn.id === 'btn-print-pending-requests') window.printReport('subview-pending-approval');
     }
 
