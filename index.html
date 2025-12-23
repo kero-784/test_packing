@@ -19,6 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+    <!-- LOGIN SCREEN -->
     <div id="login-container">
         <div class="login-box">
             <div class="login-header">
@@ -36,15 +37,17 @@
                     <input type="password" id="login-code" required autocomplete="current-password">
                 </div>
                 
-                <!-- Added Language Switcher for Login -->
+                <!-- Language Switcher for Login -->
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <select id="login-lang-switcher" style="background-color: #f1f5f9; border: 1px solid #e2e8f0;">
+                    <label>Language / اللغة</label>
+                    <select id="login-lang-switcher" class="form-control">
                         <option value="en">English</option>
                         <option value="ar">العربية</option>
                     </select>
                 </div>
 
                 <button type="submit" class="primary" style="width:100%; margin-top:10px;" data-translate-key="login">Login</button>
+                
                 <button type="button" id="btn-install-pwa" class="secondary" style="width:100%; margin-top:15px; display: none; justify-content: center; border: 2px dashed var(--primary-color);">
                     <svg style="width:20px;height:20px;margin-right:8px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     Install App
@@ -58,6 +61,7 @@
         </div>
     </div>
 
+    <!-- MAIN APP INTERFACE -->
     <div id="app-container" class="app-container" style="display: none;">
         <!-- MOBILE HEADER -->
         <div class="mobile-header">
@@ -383,7 +387,9 @@
     <div id="item-selector-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2 data-translate-key="select_items_modal_title">Select Items</h2><button class="close-button">×</button></div><div class="modal-body"><input type="search" id="modal-search-items" data-translate-placeholder="search_items_placeholder_modal"><div id="modal-item-list" class="modal-item-list"></div></div><div class="modal-footer"><button class="secondary modal-cancel" data-translate-key="cancel">Cancel</button><button id="btn-confirm-modal-selection" class="primary" data-translate-key="confirm_selection">Confirm Selection</button></div></div></div>
     <div id="invoice-selector-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2 data-translate-key="select_invoices_modal_title">Select Invoices to Pay</h2><button class="close-button">×</button></div><div class="modal-body"><div id="modal-invoice-list" class="modal-item-list"></div></div><div class="modal-footer"><button class="secondary modal-cancel" data-translate-key="cancel">Cancel</button><button id="btn-confirm-invoice-selection" class="primary" data-translate-key="confirm_selection">Confirm Selection</button></div></div></div>
     <div id="edit-modal" class="modal-overlay"><form id="form-edit-record" class="modal-content"><div class="modal-header"><h2 id="edit-modal-title" data-translate-key="edit_modal_title">Edit</h2><button type="button" class="close-button">×</button></div><div class="modal-body" id="edit-modal-body"></div><div class="modal-footer"><button type="button" class="secondary modal-cancel" data-translate-key="cancel">Cancel</button><button type="submit" class="primary" data-translate-key="save_changes">Save Changes</button></div></form></div>
-    <div id="view-transfer-modal" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2 id="view-transfer-modal-title" data-translate-key="confirm_transfer_receipt_modal_title">Confirm Transfer Receipt</h2><button class="close-button">×</button></div><div class="modal-body" id="view-transfer-modal-body"></div><div class="modal-footer"><button class="secondary modal-cancel" data-translate-key="cancel">Cancel</button><button id="btn-reject-transfer" class="danger" data-translate-key="reject">Reject</button><button id="btn-confirm-receive-transfer" class="primary" data-translate-key="confirm_receipt">Confirm Receipt</button></div></div></div>
+    <!-- FIXED: Confirm Transfer Modal Structure -->
+    <div id="view-transfer-modal" class="modal-overlay"><div class="modal-content" style="max-width: 600px;"><div class="modal-header"><h2 id="view-transfer-modal-title" data-translate-key="confirm_transfer_receipt_modal_title">Confirm Transfer Receipt</h2><button class="close-button">×</button></div><div class="modal-body" id="view-transfer-modal-body" style="max-height: 50vh; overflow-y: auto;"></div><div class="modal-footer"><button class="secondary modal-cancel" data-translate-key="cancel">Cancel</button><button id="btn-reject-transfer" class="danger" data-translate-key="reject">Reject</button><button id="btn-confirm-receive-transfer" class="primary" data-translate-key="confirm_receipt">Confirm Receipt</button></div></div></div>
+    
     <div id="history-modal" class="modal-overlay"><div class="modal-content" style="max-width: 900px;"><div class="modal-header"><h2 id="history-modal-title" data-translate-key="item_history_modal_title">Item History</h2><button class="close-button">×</button></div><div class="modal-body" id="history-modal-body"><div class="sub-nav"><button class="sub-nav-item active" data-subview="price-history" data-translate-key="price_history">Price History</button><button class="sub-nav-item" data-subview="movement-history" data-translate-key="movement_history">Movement History</button></div><div id="subview-price-history" class="sub-view active report-area"></div><div id="subview-movement-history" class="sub-view report-area"><div class="filters-container" style="padding: 10px 0; gap: 10px;"><input type="date" id="history-filter-start-date" class="small"><input type="date" id="history-filter-end-date" class="small"><select id="history-filter-type" class="small"><option value="" data-translate-key="all_types">All Types</option></select><select id="history-filter-branch" class="small"><option value="" data-translate-key="all_branches">All Branches</option></select></div><div id="movement-history-table-container"></div></div></div><div class="modal-footer"><button class="secondary modal-cancel" data-translate-key="close">Close</button></div></div></div>
     <div id="edit-po-modal" class="modal-overlay"><div class="modal-content" style="max-width: 900px;"><div class="modal-header"><h2 id="edit-po-modal-title" data-translate-key="edit_po_modal_title">Edit Purchase Order</h2><button class="close-button">×</button></div><div class="modal-body" id="edit-po-modal-body"></div><div class="modal-footer"><button class="secondary modal-cancel" data-translate-key="cancel">Cancel</button><button id="btn-save-po-changes" class="primary" data-translate-key="save_changes">Save Changes</button></div></div></div>
     <div id="approve-request-modal" class="modal-overlay"><div class="modal-content" style="max-width: 900px;"><div class="modal-header"><h2 id="approve-request-modal-title" data-translate-key="approve_request_modal_title">Approve Item Request</h2><button class="close-button">×</button></div><div class="modal-body" id="approve-request-modal-body"></div><div class="modal-footer"><button class="secondary modal-cancel" data-translate-key="cancel">Cancel</button><button id="btn-print-draft-issue-note" class="secondary" data-translate-key="print_list">Print Draft</button><button id="btn-confirm-request-approval" class="primary" data-translate-key="confirm_and_issue">Confirm and Issue</button></div></div></div>
