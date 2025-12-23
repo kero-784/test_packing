@@ -1,10 +1,13 @@
 // ui-renderers.js
 
 // --- HELPER FUNCTIONS ---
+
 function getVisibleBranchesForCurrentUser() {
     if (!state.currentUser) return [];
     if (userCan('viewAllBranches')) { return state.branches; }
-    if (state.currentUser.AssignedBranchCode) { return state.branches.filter(b => String(b.branchCode) === String(state.currentUser.AssignedBranchCode)); }
+    if (state.currentUser.AssignedBranchCode) { 
+        return state.branches.filter(b => String(b.branchCode) === String(state.currentUser.AssignedBranchCode)); 
+    }
     return [];
 }
 
@@ -16,17 +19,20 @@ function renderPaginationControls(tableId, totalItems) {
     if (totalPages <= 1) return '';
 
     return `
-        <button class="pagination-btn" data-table="${tableId}" data-delta="-1" ${settings.page === 1 ? 'disabled' : ''}>Previous</button>
-        <span>Page ${settings.page} of ${totalPages}</span>
-        <button class="pagination-btn" data-table="${tableId}" data-delta="1" ${settings.page === totalPages ? 'disabled' : ''}>Next</button>
+        <div class="pagination-controls" id="pagination-${tableId.replace('table-', '')}">
+            <button class="pagination-btn" data-table="${tableId}" data-delta="-1" ${settings.page === 1 ? 'disabled' : ''}>Previous</button>
+            <span>Page ${settings.page} of ${totalPages}</span>
+            <button class="pagination-btn" data-table="${tableId}" data-delta="1" ${settings.page === totalPages ? 'disabled' : ''}>Next</button>
+        </div>
     `;
 }
 
+// Helper to safely update table HTML and wrap in scroll container
 function updateTableHTML(tableId, html, paginationHtml = '') {
     const tableElement = document.getElementById(tableId);
     if (!tableElement) return;
     
-    // Ensure responsive wrapper
+    // Ensure responsive wrapper exists
     if (!tableElement.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -37,13 +43,18 @@ function updateTableHTML(tableId, html, paginationHtml = '') {
     const tbody = tableElement.querySelector('tbody');
     if(tbody) tbody.innerHTML = html;
 
-    // Handle Pagination Container
-    const parent = tableElement.parentElement.parentElement; 
-    let pagContainer = document.getElementById(`pagination-${tableId.replace('table-', '')}`);
+    // Handle Pagination Container placement
+    // We look for a container specifically meant for pagination controls, often placed after the table wrapper
+    const wrapper = tableElement.parentElement;
+    let pagContainer = wrapper.nextElementSibling;
     
-    if (pagContainer) {
-        pagContainer.innerHTML = paginationHtml;
-    } 
+    // Check if the next element is actually our pagination container
+    if (pagContainer && pagContainer.classList.contains('pagination-controls') && pagContainer.id === `pagination-${tableId.replace('table-', '')}`) {
+        pagContainer.innerHTML = paginationHtml ? paginationHtml.replace(/<div[^>]*>|<\/div>/g, '') : ''; // Strip wrapper if replacing content
+    } else if (paginationHtml) {
+        // If not found but we have pagination HTML, insert it
+        wrapper.insertAdjacentHTML('afterend', paginationHtml);
+    }
 }
 
 function renderCompanyInfoPreview() {
@@ -71,7 +82,7 @@ function renderCompanyInfoPreview() {
     `;
 }
 
-// --- TABLE RENDERERS ---
+// --- BASIC TABLE RENDERERS ---
 
 function renderItemsTable(data = state.items) {
     const settings = state.pagination['table-items'];
@@ -137,7 +148,8 @@ function renderSectionsTable(data = state.sections) {
     updateTableHTML('table-sections', html);
 }
 
-// Helper for transaction tables
+// --- TRANSACTION ENTRY TABLES ---
+
 const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, totalizerFn) => {
     const table = document.getElementById(tbodyId);
     if (!table) return;
@@ -160,9 +172,15 @@ const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, tota
             let cellsHtml = '';
             columnsConfig.forEach(col => {
                 let content = '';
-                const fromBranchEl = document.getElementById(col.branchSelectId);
-                const fromBranch = fromBranchEl ? fromBranchEl.value : null;
+                // Handle dynamic stock lookups based on selected branch
+                let fromBranch = null;
+                if(col.branchSelectId) {
+                    const el = document.getElementById(col.branchSelectId);
+                    if(el) fromBranch = el.value;
+                }
+                
                 const availableStock = (stock[fromBranch]?.[item.itemCode]?.quantity || 0);
+
                 switch (col.type) {
                     case 'text': content = item[col.key]; break;
                     case 'number_input': content = `<input type="number" class="table-input" value="${item[col.key] || ''}" min="${col.min || 0.01}" ${col.maxKey ? `max="${availableStock}"` : ''} step="${col.step || 0.01}" data-index="${index}" data-field="${col.key}">`; break;
@@ -180,6 +198,7 @@ const renderDynamicListTable = (tbodyId, list, columnsConfig, emptyMessage, tota
     if (totalizerFn) totalizerFn();
 };
 
+// Map renderers to specific table configs
 function renderReceiveListTable() { renderDynamicListTable('table-receive-list', state.currentReceiveList, [ { type: 'text', key: 'itemCode' }, { type: 'text', key: 'itemName' }, { type: 'number_input', key: 'quantity' }, { type: 'cost_input', key: 'cost' }, { type: 'calculated', calculator: item => `${((parseFloat(item.quantity) || 0) * (parseFloat(item.cost) || 0)).toFixed(2)} EGP` } ], 'no_items_selected_toast', updateReceiveGrandTotal); }
 function renderTransferListTable() { renderDynamicListTable('table-transfer-list', state.currentTransferList, [ { type: 'text', key: 'itemCode' }, { type: 'text', key: 'itemName' }, { type: 'available_stock', branchSelectId: 'transfer-from-branch' }, { type: 'number_input', key: 'quantity', maxKey: true, branchSelectId: 'transfer-from-branch' } ], 'no_items_selected_toast', updateTransferGrandTotal); }
 function renderIssueListTable() { renderDynamicListTable('table-issue-list', state.currentIssueList, [ { type: 'text', key: 'itemCode' }, { type: 'text', key: 'itemName' }, { type: 'available_stock', branchSelectId: 'issue-from-branch' }, { type: 'number_input', key: 'quantity', maxKey: true, branchSelectId: 'issue-from-branch' } ], 'no_items_selected_toast', updateIssueGrandTotal); }
@@ -220,14 +239,35 @@ function renderAdjustmentListTable() {
     tbody.innerHTML = html;
 }
 
-// --- UPDATED RENDERER FOR PENDING TRANSFERS ---
+// --- REPORT RENDERERS ---
+
+function renderStockAdjustmentReport() {
+    const table = document.getElementById('table-stock-adj-report');
+    if(!table) return;
+    
+    const adjData = state.transactions.filter(t => t.type === 'stock_adjustment' || t.type === 'adjustment_in' || t.type === 'adjustment_out').reverse();
+    
+    const settings = state.pagination['table-stock-adj-report'];
+    const totalItems = adjData.length;
+    const start = (settings.page - 1) * settings.pageSize;
+    const paginatedData = adjData.slice(start, start + settings.pageSize);
+
+    let html = '';
+    paginatedData.forEach(t => {
+        const item = findByKey(state.items, 'code', t.itemCode);
+        const branch = findByKey(state.branches, 'branchCode', t.fromBranchCode);
+        const typeDisplay = t.type === 'adjustment_in' ? 'In (+)' : (t.type === 'adjustment_out' ? 'Out (-)' : 'Adj');
+        html += `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.ref || t.batchId}</td><td>${branch?.branchName || t.fromBranchCode}</td><td>${item?.name || t.itemCode}</td><td>${parseFloat(t.quantity).toFixed(2)}</td><td>${typeDisplay}</td><td>${t.notes || ''}</td><td><button class="secondary small btn-view-tx" data-batch-id="${t.batchId}" data-type="adjustment">${_t('view_print')}</button></td></tr>`;
+    });
+    updateTableHTML('table-stock-adj-report', html, renderPaginationControls('table-stock-adj-report', totalItems));
+}
+
 function renderPendingTransfers() {
     const container = document.getElementById('pending-transfers-card');
     const table = document.getElementById('table-pending-transfers');
     
     if(!container || !table) return;
     
-    // Ensure responsive wrapper
     if (!table.parentElement.classList.contains('table-responsive')) {
         const wrapper = document.createElement('div');
         wrapper.className = 'table-responsive';
@@ -238,7 +278,7 @@ function renderPendingTransfers() {
     const tbody = table.querySelector('tbody');
     const thead = table.querySelector('thead');
     
-    // Force Header Update
+    // Force Header Update to ensure columns match logic
     if(thead) {
         thead.innerHTML = `
             <tr>
@@ -263,6 +303,7 @@ function renderPendingTransfers() {
         }
     });
     
+    // Filter Visibility
     const visibleTransfers = Object.values(groupedTransfers).filter(t => {
         if (userCan('viewAllBranches')) return true;
         return String(t.toBranchCode) === String(state.currentUser.AssignedBranchCode);
@@ -769,9 +810,7 @@ const generateTransferDocument = (data) => {
     
     items.forEach(item => {
         const fullItem = findByKey(state.items, 'code', item.itemCode) || { name: 'Unknown', unit: 'Units' };
-        const itemName = item.itemName || fullItem.name;
-        
-        itemsHtml += `<tr><td>${item.itemCode}</td><td>${itemName}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${fullItem.unit || ''}</td></tr>`;
+        itemsHtml += `<tr><td>${item.itemCode}</td><td>${item.itemName || fullItem.name}</td><td style="text-align:center">${parseFloat(item.quantity).toFixed(2)}</td><td style="text-align:center">${fullItem.unit || ''}</td></tr>`;
     });
 
     const content = `
